@@ -33,7 +33,9 @@ module Bosh::AzureCloud
     private
     
     def get_storage_properties
-      @storage_service.get_storage_account_properties(@storage_account_name)
+      puts "get property storage"
+      return {}
+      #@storage_service.get_storage_account_properties(@storage_account_name)
     end
   end
 end

@@ -42,21 +42,16 @@ module Bosh::AzureCloud
 
     def list_stemcells
       os_images = []
-      storage_affinity_group = @storage_manager.get_storage_affinity_group
       
       response = handle_response http_get("/services/images")
       response.css('Images OSImage').each do |image|
-        image_family = xml_content(image, 'ImageFamily')
         category = xml_content(image, 'Category')
-        affinity_group = xml_content(image, 'AffinityGroup')
         
-        if image_family == IMAGE_FAMILY && category == 'User' && affinity_group == storage_affinity_group
+        if category == 'User' 
           os_images << xml_content(image, 'Name')
         end
       end
       os_images
-    rescue => e
-      cloud_error("Failed to list stemcells: #{e.message}\n#{e.backtrace.join("\n")}")
     end
 
     def create_stemcell(image_path, cloud_properties)

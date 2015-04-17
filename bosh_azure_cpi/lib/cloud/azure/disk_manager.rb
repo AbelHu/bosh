@@ -55,14 +55,6 @@ module Bosh::AzureCloud
       
       begin
         logger.info("Start to create an disk with created VHD")
-        handle_response http_post("/services/disks",
-                             "<Disk xmlns=\"http://schemas.microsoft.com/windowsazure\" " \
-                             "xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">" \
-                             '<OS>Linux</OS>' \
-                             "<Label>#{DISK_FAMILY}</Label>" \
-                             "<MediaLink>#{@storage_manager.get_storage_blob_endpoint}#{container_name}/#{disk_name}.vhd</MediaLink>" \
-                             "<Name>#{disk_name}</Name>" \
-                             '</Disk>')
         disk_name
       rescue => e
         @blob_manager.delete_blob(container_name, "#{disk_name}.vhd")
@@ -71,14 +63,6 @@ module Bosh::AzureCloud
     end
 
     def delete_disk(disk_name)
-      logger.info("Start to delete disk: disk_name: #{disk_name}")
-
-      begin
-        http_delete("/services/disks/#{disk_name}?comp=media")
-      rescue => e
-        cloud_error("Failed to delete_disk: #{e.message}\n#{e.backtrace.join("\n")}")
-      end
-      nil
     end
 
     def snapshot_disk(disk_id, metadata)
@@ -92,23 +76,7 @@ module Bosh::AzureCloud
       blob_container_name = blob_info[3]
       disk_blob_name = blob_info[4]
       @blob_manager.snapshot_blob(blob_container_name, disk_blob_name, metadata, "#{snapshot_disk_name}.vhd")
-
-      begin
-        logger.info("Start to create an disk with the snapshot blob")
-        blob_info[4] = "#{snapshot_disk_name}.vhd"
-        handle_response http_post("/services/disks",
-                             "<Disk xmlns=\"http://schemas.microsoft.com/windowsazure\" " \
-                             "xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\">" \
-                             '<OS>Linux</OS>' \
-                             "<Label>#{DISK_FAMILY}</Label>" \
-                             "<MediaLink>#{blob_info.join('/')}</MediaLink>" \
-                             "<Name>#{snapshot_disk_name}</Name>" \
-                             '</Disk>')
-        snapshot_disk_name
-      rescue => e
-        @blob_manager.delete_blob(blob_container_name, "#{snapshot_disk_name}.vhd")
-        cloud_error("Failed to create disk: #{e.message}\n#{e.backtrace.join("\n")}")
-      end
+      snapshot_disk_name
     end
   end
 end
