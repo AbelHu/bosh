@@ -26,6 +26,7 @@ module Bosh::Deployer
       end
 
       def remote_tunnel
+        #sleep(1000)
         @remote_tunnel.create(instance_manager.client_services_ip, registry.port)
       end
 
@@ -78,8 +79,11 @@ module Bosh::Deployer
       # @return [Integer] size in MiB
       def disk_size(cid)
         # AZURE stores disk size in GiB but the CPI uses MiB
-        disk = instance_manager.cloud.azure.find(instance_manager.state.vm_cid).data_disks.select { |x| x.disk_name == cid }
-        disk.first.size_in_gb * 1024
+        #vm_property =  instance_manager.cloud.azure.find(instance_manager.state.vm_cid)
+        #data_disk = vm_property["properties"]["storageProfile"]["dataDisks"].find { |disk| disk["vhd"]["name"] == cid}      
+        #disk = instance_manager.cloud.azure.find(instance_manager.state.vm_cid).data_disks.select { |x| logger.debug("#{x}");x.name == cid }
+        #data_disk.first[""] * 1024
+        1
       end
 
       def persistent_disk_changed?
@@ -87,6 +91,7 @@ module Bosh::Deployer
         # is a risk of conversion errors which lead to an unnecessary
         # disk migration, so we need to do a double conversion
         # here to avoid that
+        puts "persistent_disk_changed"
         requested = (config.resources['persistent_disk'] / 1024.0).ceil * 1024
         requested != disk_size(instance_manager.state.disk_cid)
       end
@@ -111,13 +116,13 @@ module Bosh::Deployer
 
       def discover_client_services_ip
         if instance_manager.state.vm_cid
-          instance = instance_manager.cloud.azure.find(instance_manager.state.vm_cid)
-          ip = instance.ipaddress
+          #instance = instance_manager.cloud.azure.find(instance_manager.state.vm_cid)
+          #ip = instance.ipaddress
 
-          if ip
-            logger.info("discovered bosh ip=#{ip}")
-            return ip
-          end
+          #if ip
+          #  logger.info("discovered bosh ip=#{ip}")
+          #  return ip
+          #end
         end
         logger.info("using configured ip=#{config.client_services_ip}")
         config.client_services_ip
