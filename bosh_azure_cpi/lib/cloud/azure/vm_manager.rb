@@ -71,15 +71,13 @@ module Bosh::AzureCloud
           params[:privateIPAddress] = network_configurator.private_ip
           params[:privateIPAddressType] = "Static"
       end
-      
+ 
       args = "-t deploy -r #{cloud_opts['resource_group_name']}".split(" ")      
       args.push(File.join(File.dirname(__FILE__),"bosh_deploy_vm.json"))
       args.push(Base64.encode64(params.to_json()))
       result = invoke_auzre_js(args,logger)
-      cloud_error("vm_manager.create: failed") if not result
-
       network_property = network_configurator.network.spec["cloud_properties"] 
-      if !network_configurator.vip_network.nil?
+      if !network_configurator.vip_network.nil? and result
            ipname = invoke_auzre_js("-r #{cloud_opts['resource_group_name']} -t findResource properties:ipAddress  #{network_configurator.reserved_ip} Microsoft.Network/publicIPAddresses".split(" "),logger)[0]
            
          p = {"StorageAccountName"=> @storage_manager.get_storage_account_name,
@@ -97,8 +95,10 @@ module Bosh::AzureCloud
           result = invoke_auzre_js(args,logger)
       end
       if not result
-        invoke_auzre_js("-t delete -r #{cloud_opts["resource_group_name"]} #{instanceid} Microsoft.Compute/virtualMachines")
-        invoke_auzre_js("-t delete -r #{cloud_opts["resource_group_name"]} #{instanceid} Microsoft.Network/networkInterfaces")
+        invoke_auzre_js("-t delete -r #{cloud_opts["resource_group_name"]} #{instanceid} Microsoft.Network/loadBalancers".split(" "),logger)
+        invoke_auzre_js("-t delete -r #{cloud_opts["resource_group_name"]} #{instanceid} Microsoft.Compute/virtualMachines".split(" "),logger)
+        invoke_auzre_js("-t delete -r #{cloud_opts["resource_group_name"]} #{instanceid} Microsoft.Network/networkInterfaces".split(" "),logger)
+        cloud_error("create vm failed")        
       end 
 
       return {:cloud_service_name=>instanceid,:vm_name=>instanceid} if result
@@ -141,7 +141,12 @@ module Bosh::AzureCloud
     def shutdown(instance_id)
          invoke_auzre_js_with_id(["stop",instance_id],logger)[0]
     end
-
+    def set_tag(instance_id,tag)
+         tagStr = ""
+         tag.each do |i| tagStr<<"#{i[0]}=#{i[1]};" end    
+         tagStr = tagStr[0..-2]
+         invoke_auzre_js_with_id(["setTag",instance_id,"Microsoft.Compute/virtualMachines",tagStr],logger)[0]
+    end
     def instance_id(wala_lib_path)
       contents = File.open(wala_lib_path + "/SharedConfig.xml", "r"){ |file| file.read }
       vm_name = contents.match("^*<Incarnation number=\"\\d*\" instance=\"(.*)\" guid=\"{[-0-9a-fA-F]+}\"[\\s]*/>")[1]

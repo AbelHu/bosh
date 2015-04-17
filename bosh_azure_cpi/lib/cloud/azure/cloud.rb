@@ -95,7 +95,7 @@ module Bosh::AzureCloud
     def create_vm(agent_id, stemcell_id, resource_pool, networks, disk_locality = nil, env = nil)
       with_thread_name("create_vm(#{agent_id}, ...)") do
         begin
-          raise "Given stemcell '#{stemcell_id}' does not exist" unless @stemcell_manager.has_stemcell?(stemcell_id)
+          #raise "Given stemcell '#{stemcell_id}' does not exist" unless @stemcell_manager.has_stemcell?(stemcell_id)
 
           instance = @instance_manager.create(
             agent_id,
@@ -104,7 +104,7 @@ module Bosh::AzureCloud
             NetworkConfigurator.new(networks),
             resource_pool)
 
-           instance_id = generate_instance_id(instance[:cloud_service_name], instance[:vm_name])
+           instance_id = generate_instance_id("__"+instance[:cloud_service_name]+"Service", "_"+instance[:vm_name])
 
           logger.info("Created new instance '#{instance_id}'")
 
@@ -188,6 +188,7 @@ module Bosh::AzureCloud
     # @return [void]
     def set_vm_metadata(instance_id, metadata)
       logger.info("set_vm_metadata(#{instance_id}, #{metadata})")
+       @instance_manager.set_tag(instance_id,metadata)
     end
 
     ##
