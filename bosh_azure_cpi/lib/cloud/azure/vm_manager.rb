@@ -8,159 +8,144 @@ module Bosh::AzureCloud
       @storage_manager = storage_manager
       @registry = registry
       @disk_manager = disk_manager
-
-      @azure_cloud_service    = Azure::CloudServiceManagement::CloudServiceManagementService.new
-      @azure_vm_service       = Azure::VirtualMachineManagementService.new
-      @reserved_ip_manager    = Bosh::AzureCloud::ReservedIpManager.new
-      @affinity_group_manager = Bosh::AzureCloud::AffinityGroupManager.new
-
       @logger = Bosh::Clouds::Config.logger
+    end
+    
+    def invoke_auzre_js(args,logger,abort_on_error=true)
+      node_js_file = File.join(File.dirname(__FILE__),"azure_op.js") 
+      cmd = "node #{node_js_file} ".split(" ")
+      cmd.concat(args)
+      result  = {};
+      Open3.popen3(*cmd) {
+      |stdin, stdout, stderr, wait_thr|
+   
+            data = ""
+            stdstr=""
+            begin
+                while wait_thr.alive? do
+                    IO.select([stdout]) 
+                    data = stdout.read_nonblock(1024000)
+                    logger.info(data)
+                    stdstr+=data;
+                end
+                rescue Errno::EAGAIN
+                retry
+                rescue EOFError
+            end
+
+            errstr = stderr.read;
+            stdstr+=stdout.read
+            if errstr
+                logger.warn(errstr);
+            end
+            matchdata = stdstr.match(/##RESULTBEGIN##(.*)##RESULTEND##/im)
+            result = JSON(matchdata.captures[0]) if  matchdata
+            exitcode = wait_thr.value 
+            logger.debug(result)
+            #cloud_error("command execute failed ,abort :"+args) if exitcode==1 and abort_on_error
+            return nil if result["Failed"];
+            return result["R"] 
+      }
     end
 
     def create(uuid, stemcell, cloud_opts, network_configurator, resource_pool)
-      network_property = network_configurator.network.spec["cloud_properties"]
-
-      params = {
-          :vm_name             => "bosh-vm-#{uuid}",
-          :vm_user             => cloud_opts['ssh_user'],
-          :image               => stemcell,
+       raise Bosh::Clouds::CloudError, "resource_group_name required for deployment"  if cloud_opts["resource_group_name"]==nil
+       instanceid = "bosh-#{cloud_opts["resource_group_name"]}-#{uuid}"
+       imageUri = "https://#{@storage_manager.get_storage_account_name}.blob.core.windows.net/stemcell/#{stemcell}"
+       sshKeyData = File.read(cloud_opts['ssh_certificate_file'])
+       params = {
+          :vmName             => instanceid,
+          :nicName             => instanceid,
+          :adminUserName       => cloud_opts['ssh_user'],
+          :imageUri           => imageUri,
           :location           => cloud_opts['location'],
-          :domain_name   =>   network_property["domain_name"],
-          :virtual_network_name =>   network_property["virtual_network_name"],
-          :ip => network_property["ip"],
-          :subnet_name => network_property["subnet_name"],
-          :vm_size => resource_pool['instance_type'],
-          :password => cloud_opts['password'],
-          :storage_account_name => @storage_manager.get_storage_account_name,
+          :vmSize => resource_pool['instance_type'],
+          :storageAccountName => @storage_manager.get_storage_account_name,
+          :customData => get_user_data(instanceid, network_configurator.dns),
+          :sshKeyData => sshKeyData
       }
-      logger.info("cloud_opts #{cloud_opts},network_property #{network_property} ")
+        params[:virtualNetworkName] = network_configurator.virtual_network_name
+        params[:subnetName]          = network_configurator.subnet_name
 
-      deploy_script_paramter = {
-          :custom_data =>  get_user_data(params[:vm_name],  network_configurator.network.spec["dns"]),
-          :ssh_key => cloud_opts['vm_authorized_keys'],
-          :vm_user => params[:vm_user]
-                               }
-      params[:deploy_script_paramter] = deploy_script_paramter.to_json()
-
-      endpoints = []
-      network_configurator.tcp_endpoints.split(",").each{|p|
-          endpoints.push({
-                    :enableDirectServerReturn=>"False",
-                    :endpointName=>"tcp"+p.split(":")[0].strip,
-                    :publicPort=>p.split(":")[0].strip,
-                    :privatePort=>p.split(":")[1].strip,
-                    :protocol=> "tcp"
-                   }
-                   )
-      }
-      network_configurator.udp_endpoints.split(",").each{|p|
-          endpoints.push({
-                    :enableDirectServerReturn=>"False",
-                    :endpointName=>"udp"+p.split(":")[0].strip,
-                    :publicPort=>p.split(":")[0].strip,
-                    :privatePort=>p.split(":")[1].strip,
-                    :protocol=> "udp"
-            })
-      }
-
-      params[:endpoints]=endpoints
-      crp_params={}
-      params.each_pair do |key,values| crp_params[key]={"value"=>values}  end
-
-
-      require 'open3'
-      deployt_crp_log  = ""
-      exit_status = 0
-
-      `azure config mode arm`
-      Open3.popen3("azure","group","deployment","create",cloud_opts['resource_group_name'],
-                    "-n",params[:vm_name],"-f",File.join(File.dirname(__FILE__),"bosh_deploy_vm.json"),"-p",crp_params.to_json) {
-      |stdin, stdout, stderr, wait_thr|
-          pid = wait_thr.pid # pid of the started process
-          exit_status = wait_thr.value
-          deployt_crp_log<<stdout.read
-          deployt_crp_log<<stderr.read
-      }
-      logger.debug("Creating VM: #{deployt_crp_log}")
-      if  exit_status !=0
-        logger.error("Failed to create vm")
-        cloud_error("Failed to create vm")
+      unless network_configurator.private_ip.nil?
+          params[:privateIPAddress] = network_configurator.private_ip
+          params[:privateIPAddressType] = "Static"
       end
+      
+      args = "-t deploy -r #{cloud_opts['resource_group_name']}".split(" ")      
+      args.push(File.join(File.dirname(__FILE__),"bosh_deploy_vm.json"))
+      args.push(Base64.encode64(params.to_json()))
+      result = invoke_auzre_js(args,logger)
+      cloud_error("vm_manager.create: failed") if not result
 
-      deploy_result=""
-      for i in 1..100
-          sleep 30
-          deploy_result = `azure group deployment show  #{cloud_opts['resource_group_name']} #{params[:vm_name]} 2>&1 `
-          cloud_error("Failed to get deploymnet #{deploy_result}") if $?!=0
-          deploy_result = deploy_result.match("ProvisioningState\s*:\s*(.*)").captures[0]
-
-        if deploy_result=~/Failed/
-          resource_group_name = cloud_opts['resource_group_name']
-          logs = `azure group log show #{resource_group_name} 2>&1`
-          logger.error("Failed to create vm"+logs)
-          cloud_error("Failed to create vm")
-        end
-        if deploy_result=~/Succeeded/
-           logger.info("Deploy succeeded")
-           break
-        end
-        logger.info("Wait for deployment#{params[:vm_name]} stats:#{deploy_result} to finish")
+      network_property = network_configurator.network.spec["cloud_properties"] 
+      if !network_configurator.vip_network.nil?
+           ipname = invoke_auzre_js("-r #{cloud_opts['resource_group_name']} -t findResource properties:ipAddress  #{network_configurator.reserved_ip} Microsoft.Network/publicIPAddresses".split(" "),logger)[0]
+           
+         p = {"StorageAccountName"=> @storage_manager.get_storage_account_name,
+              "lbName"=> network_property['load_balance_name']?network_property['load_balance_name']:instanceid,
+              "publicIPAddressName"=>ipname,
+              "nicName"=>instanceid,
+              "virtualNetworkName"=>"vnet",
+              "TcpEndPoints"=> network_configurator.tcp_endpoints,
+              "UdpEndPoints"=>network_configurator.udp_endpoints
+            }
+          p = p.merge(params)
+          args = "-t deploy -r #{cloud_opts["resource_group_name"]}  ".split(" ")      
+          args.push(File.join(File.dirname(__FILE__),"bosh_create_endpoints.json"))
+          args.push(Base64.encode64(p.to_json()))
+          result = invoke_auzre_js(args,logger)
       end
+      if not result
+        invoke_auzre_js("-t delete -r #{cloud_opts["resource_group_name"]} #{instanceid} Microsoft.Compute/virtualMachines")
+        invoke_auzre_js("-t delete -r #{cloud_opts["resource_group_name"]} #{instanceid} Microsoft.Network/networkInterfaces")
+      end 
 
-      if not deploy_result=~/Succeeded/
-        cloud_error("Failed to create vm")
-        return
-      end
-      {:cloud_service_name=>params[:domain_name], :vm_name=>params[:vm_name]}
-
+      return {:cloud_service_name=>instanceid,:vm_name=>instanceid} if result
+      
     end
 
+    def invoke_auzre_js_with_id(arg,logger)
+        task =arg[0]
+        id = arg[1]
+        logger.info("invoke azure js "+task)
+        begin
+           #(__bosh-qingfu3-bm-0458d6c4-6534-4724-81f1-d71e50df778fService&_bosh-qingfu3-bm-0458d6c4-6534-4724-81f1-d71e50df778f
+            resource_group_name = id.split('&')[0][7..-48]
+            puts("resource_group_name is" +resource_group_name)
+            return invoke_auzre_js(["-t",task,"-r",resource_group_name,id.split('&')[1][1..-1]].concat(arg[2..-1]),logger)
+        rescue Exception => ex
+            puts("error:"+ex.message+ex.backtrace.join("\n"))
+        end
+    end
+    
     def find(instance_id)
-      logger.debug("find(#{instance_id})")
-      cloud_service_name, vm_name = parse_instance_id(instance_id)
-      @azure_vm_service.get_virtual_machine(vm_name, cloud_service_name)
+       return JSON(invoke_auzre_js_with_id(["getvm",instance_id],logger)[0])
     end
 
     def delete(instance_id)
-      logger.debug("delete(#{instance_id})")
-      cloud_service_name, vm_name = parse_instance_id(instance_id)
-      max_retry = 10
-
-      begin
-        retry_interval = 0
-        handle_response http_delete("services/hostedservices/#{cloud_service_name}?comp=media")
-      rescue => e
-        if e.message.include?("ConflictError")
-          retry_interval = 6
-          max_retry -= 1
-        elsif e.message.include?("TooManyRequests")
-          retry_interval = 15
-          max_retry -= 1
-        end
-
-        if retry_interval != 0 && max_retry > 0
-          sleep(retry_interval)
-          logger.info("retry to delete(#{instance_id})")
-          retry
-        end
-        logger.warn("delete(#{instance_id}): #{e.message}\n#{e.backtrace.join("\n")}")
-      end
+       shutdown(instance_id)
+       invoke_auzre_js_with_id(["delete",instance_id,"Microsoft.Compute/virtualMachines"],logger)[0]
+       invoke_auzre_js_with_id(["delete",instance_id,"Microsoft.Network/loadBalancers"],logger)[0]
+       invoke_auzre_js_with_id(["delete",instance_id,"Microsoft.Network/networkInterfaces"],logger)[0]
     end
 
     def reboot(instance_id)
-      logger.debug("reboot(#{instance_id})")
-      cloud_service_name, vm_name = parse_instance_id(instance_id)
-      @azure_vm_service.restart_virtual_machine(vm_name, cloud_service_name)
+        invoke_auzre_js_with_id(["reboot",instance_id],logger)[0]
+    end
+
+    def start(instance_id)
+        invoke_auzre_js_with_id(["start",instance_id],logger)[0]
+    end
+
+    def shutdown(instance_id)
+         invoke_auzre_js_with_id(["stop",instance_id],logger)[0]
     end
 
     def instance_id(wala_lib_path)
-      logger.debug("instance_id(#{wala_lib_path})")
       contents = File.open(wala_lib_path + "/SharedConfig.xml", "r"){ |file| file.read }
-
-      service_name = contents.match("^*<Service name=\"(.*)\" guid=\"{[-0-9a-fA-F]+}\"[\\s]*/>")[1]
       vm_name = contents.match("^*<Incarnation number=\"\\d*\" instance=\"(.*)\" guid=\"{[-0-9a-fA-F]+}\"[\\s]*/>")[1]
-      
-      generate_instance_id(service_name, vm_name)
+      generate_instance_id(vm_name)
     end
     
     ##
@@ -170,108 +155,39 @@ module Bosh::AzureCloud
     # @param [String] disk_name disk name
     # @return [String] volume name. "/dev/sd[c-r]"
     def attach_disk(instance_id, disk_name)
-      logger.debug("attach_disk(#{instance_id}, #{disk_name})")
-      vm = find(instance_id) || cloud_error('Given instance id does not exist')
-
-      cloud_service_name, vm_name = parse_instance_id(instance_id)
-
-      next_disk_lun = vm.data_disks.size
-      options = {
-          :import => true,
-          :disk_name => disk_name,
-          :host_caching => 'ReadOnly',
-          :disk_label => 'bosh',
-          :lun => next_disk_lun
-      }
-      @azure_vm_service.add_data_disk(vm_name, cloud_service_name, options)
-
-      disks_size = next_disk_lun
-      until disks_size > next_disk_lun do
-        sleep(5)
-        vm = find(instance_id)
-        disks_size = vm.data_disks.size
-      end
-
-      get_volume_name(instance_id, disk_name)
+       disk_uri="https://"+@storage_manager.get_storage_account_name()+".blob.core.windows.net/bosh/"+disk_name+".vhd"
+       invoke_auzre_js_with_id(["adddisk",instance_id,disk_uri],logger)
+       get_volume_name(instance_id, disk_uri)
     end
     
     def detach_disk(instance_id, disk_name)
-      logger.debug("detach_disk(#{instance_id}, #{disk_name})")
-      vm = find(instance_id) || cloud_error('Given instance id does not exist')
-      
-      cloud_service_name, vm_name = parse_instance_id(instance_id)
-      
-      data_disk = vm.data_disks.find { |disk| disk[:name] == disk_name}
-      data_disk || cloud_error('Given disk name is not attached to given instance id')
-      
-      lun = get_disk_lun(data_disk)
-      max_retry = 10
-
-      begin
-        retry_interval = 0
-        handle_response http_delete("services/hostedservices/#{cloud_service_name}/deployments/#{vm.deployment_name}/"\
-                             "roles/#{vm_name}/DataDisks/#{lun}")
-      rescue => e
-        if e.message.include?("ConflictError")
-          retry_interval = 6
-          max_retry -= 1
-        elsif e.message.include?("TooManyRequests")
-          retry_interval = 15
-          max_retry -= 1
-        end
-
-        if retry_interval != 0 && max_retry > 0
-          sleep(retry_interval)
-          logger.info("retry to delete(#{instance_id})")
-          retry
-        end
-        logger.warn("delete(#{instance_id}): #{e.message}\n#{e.backtrace.join("\n")}")
-      end
-
-      current_disks_size = vm.data_disks.size
-      disks_size = current_disks_size
-      until disks_size < current_disks_size do
-        sleep(5)
-        vm = find(instance_id)
-        disks_size = vm.data_disks.size
-      end
-    end
-    
-    def get_disks(instance_id)
-      logger.debug("get_disks(#{instance_id})")
-      vm = find(instance_id) || cloud_error('Given instance id does not exist')
-      
-      data_disks = []
-      vm.data_disks.each do |disk|
-        data_disks << disk[:name]
-      end
-      
-      data_disks
+        disk_uri="https://"+@storage_manager.get_storage_account_name()+".blob.core.windows.net/bosh/"+disk_name+".vhd"
+        invoke_auzre_js_with_id(["rmdisk",instance_id,disk_uri],logger)
     end
     
     private
-    
+
     def get_user_data(vm_name, dns)
       user_data = {registry: {endpoint: @registry.endpoint}}
       user_data[:server] = {name: vm_name}
       user_data[:dns] = {nameserver: dns} if dns
-
       Base64.strict_encode64(Yajl::Encoder.encode(user_data))
     end
     
     def get_volume_name(instance_id, disk_name)
-      vm = find(instance_id) || cloud_error('Given instance id does not exist')
-      
-      data_disk = vm.data_disks.find { |disk| disk[:name] == disk_name}
+      vm_property = invoke_auzre_js_with_id(["getvm",instance_id],logger)[0]
+      vm_property = JSON(vm_property)
+      data_disk = vm_property["properties"]["storageProfile"]["dataDisks"].find { |disk| disk["vhd"]["uri"] == disk_name}
       data_disk || cloud_error('Given disk name is not attached to given instance id')
-      
       lun = get_disk_lun(data_disk)
-      
+      logger.info("get_volume_name return lun #{lun}")
       "/dev/sd#{('c'.ord + lun).chr}"
     end
     
     def get_disk_lun(data_disk)
-      data_disk[:lun] != "" ? data_disk[:lun].to_i : 0
+      data_disk["lun"] != "" ? data_disk["lun"].to_i : 0
     end
+    
   end
 end
+
