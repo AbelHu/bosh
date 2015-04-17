@@ -118,7 +118,6 @@ module Bosh::Deployer
         if instance_manager.state.vm_cid
           #instance = instance_manager.cloud.azure.find(instance_manager.state.vm_cid)
           #ip = instance.ipaddress
-
           #if ip
           #  logger.info("discovered bosh ip=#{ip}")
           #  return ip
