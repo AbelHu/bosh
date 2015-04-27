@@ -4,7 +4,7 @@ module Bosh::AzureCloud
     attr_accessor :logger
 
     def initialize(storage_account_name)
-      @storage_service = Azure::StorageManagement::StorageManagementService.new
+     # @storage_service = Azure::StorageManagement::StorageManagementService.new
       @storage_account_name = storage_account_name
       @logger = Bosh::Clouds::Config.logger
     end

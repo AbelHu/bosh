@@ -39,6 +39,9 @@ cloud:
       ssh_certificate: <content_of_your_ssh_certificate>
       ssh_private_key: <content_of_your_ssh_private_key>
       affinity_group_name: <your_affinity_group_name>
+      azure_accout_id:
+      azure_account_secret:
+      tenante_id:
 
 apply_spec:
   agent:
