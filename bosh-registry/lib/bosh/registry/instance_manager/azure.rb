@@ -7,21 +7,21 @@ module Bosh::Registry
     class Azure < InstanceManager
 
       def initialize(cloud_config)
-        #validate_options(cloud_config)
+        validate_options(cloud_config)
 
         @logger = Bosh::Registry.logger
 
         @azure_properties = cloud_config["azure"]
-        #@azure_certificate_file = "/tmp/azure.pem"
-        #File.open(@azure_certificate_file, 'w+') { |f| f.write(@azure_properties['management_certificate']) }
+        @azure_certificate_file = "/tmp/azure.pem"
+        File.open(@azure_certificate_file, 'w+') { |f| f.write(@azure_properties['management_certificate']) }
 
         ::Azure.configure do |config|
           config.management_endpoint    = @azure_properties['management_endpoint']
           config.subscription_id        = @azure_properties["subscription_id"]
-         # config.management_certificate = @azure_certificate_file
+          config.management_certificate = @azure_certificate_file
         end
 
-        #@virtual_machine_service = ::Azure::VirtualMachineManagementService.new
+        @virtual_machine_service = ::Azure::VirtualMachineManagementService.new
       end
 
       def validate_options(cloud_config)

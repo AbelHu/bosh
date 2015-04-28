@@ -95,7 +95,8 @@ module Bosh::AzureCloud
       with_thread_name("create_vm(#{agent_id}, ...)") do
         begin
           raise "Given stemcell '#{stemcell_id}' does not exist" unless @azure.stemcell_manager.has_stemcell?(stemcell_id)
-          instance = @azure.vm_manager.try_create(
+      #    agent_id = 'bm-4c1ebe45-f384-4ae2-a9bd-273cacb5687c'
+          instance = @azure.vm_manager.create(
             agent_id,
             stemcell_id,
             azure_properties,
@@ -376,7 +377,6 @@ module Bosh::AzureCloud
                               'ssh_certificate_file'   => @ssh_certificate_file,
                               'ssh_private_key_file'   => @ssh_private_key_file
                             })
-
       @azure = Bosh::AzureCloud::AzureClient.new(azure_properties, @registry, @logger)
     end
 

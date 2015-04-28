@@ -10,17 +10,6 @@ module Bosh::AzureCloud
       @logger = Bosh::Clouds::Config.logger
     end
 
-
-    def try_create(uuid, stemcell, cloud_opts, network_configurator, resource_pool)
-      begin
-         return create(uuid, stemcell, cloud_opts, network_configurator, resource_pool)
-      rescue Exception => e
-         delete("bosh-#{cloud_opts["resource_group_name"]}-#{uuid}")
-         logger.error(e.message+e.backtrace.inspect)
-         cloud_error("create vm fail")
-      end
-    end
-
     def create(uuid, stemcell, cloud_opts, network_configurator, resource_pool)
       cloud_error("resource_group_name required for deployment")  if cloud_opts["resource_group_name"]==nil
       instanceid = "bosh-#{cloud_opts["resource_group_name"]}-#{uuid}"
@@ -48,18 +37,18 @@ module Bosh::AzureCloud
           params[:privateIPAddressType] = "Static"
       end
       default_security_groupname = "bosh"
-      args = "-t deploy -r #{cloud_opts['resource_group_name']}".split(" ")
+      args = "-t deploy -r #{cloud_opts['resource_group_name']}".split(" ")      
       args.push(File.join(File.dirname(__FILE__),"azure_crp","azure_vm.json"))
       args.push(Base64.encode64(params.to_json()))
       result = 'OK'
       result = invoke_azure_js(args,logger)
-      network_property = network_configurator.network.spec["cloud_properties"]
+      network_property = network_configurator.network.spec["cloud_properties"] 
       if !network_configurator.vip_network.nil? and result
-           ip_crp_template = 'azure_vm_endpoints.json'
+           ip_crp_template = 'azure_vm_endpoints.json' 
            ipname = invoke_azure_js("-r #{cloud_opts['resource_group_name']} -t findResource properties:ipAddress  #{network_configurator.reserved_ip} Microsoft.Network/publicIPAddresses".split(" "),logger)
            #if vip is not a reserved ip, then create an ipaddress with given label name
            #add nic to 'bosh' network security group,ignore error
-           if ipname==nil || ipname.length==0
+           if ipname==nil || ipname.length==0 
                logger.debug(network_configurator.reserved_ip+" is not a reserved ip , go to create ip and take it as fqdn name")
                ipname = instanceid;
                invoke_azure_js("-r #{cloud_opts['resource_group_name']} -t createip #{ipname}  #{network_configurator.reserved_ip.split(".")[0].split("/")[-1]}".split(" "),logger)
@@ -78,7 +67,7 @@ module Bosh::AzureCloud
             }
 
           p = p.merge(params)
-          args = "-t deploy -r #{cloud_opts["resource_group_name"]}  ".split(" ")
+          args = "-t deploy -r #{cloud_opts["resource_group_name"]}  ".split(" ")      
           args.push(File.join(File.dirname(__FILE__),"azure_crp",ip_crp_template))
           args.push(Base64.encode64(p.to_json()))
           result = invoke_azure_js(args,logger)
@@ -86,25 +75,27 @@ module Bosh::AzureCloud
       end
       if not result
          delete(instanceid)
-         cloud_error("create vm failed")
-      end
+         cloud_error("create vm failed")        
+      end 
       return instanceid if result
-
+    rescue
+       delete(instanceid)
+       cloud_error("create vm failed") 
     end
 
-
+    
     def find(instance_id)
        vm= get_azure_vm(instance_id,nil) 
        publicip = get_azure_publicip(instance_id,nil)
        dipaddress = (publicip!=nil)?publicip["properties"]["ipAddress"]:nil;
        nic = get_azure_nic(instance_id,nil)["properties"]["ipConfigurations"][0]
-       return {
-                    "data_disks"    => vm["properties"]["storageProfile"]["dataDisks"],
-                    "ipaddress"     => nic["properties"]["privateIPAddress"],
-                    "vm_name"       => vm["name"],
-                    "dipaddress"    => dipaddress,
-                    "status"        => vm["properties"]["provisioningState"]
-                           }
+      return {
+              "data_disks"    => vm["properties"]["storageProfile"]["dataDisks"],
+              "ipaddress"     => nic["properties"]["privateIPAddress"],
+               "vm_name"     => vm["name"],
+              "dipaddress"    => dipaddress,
+               "status"        => vm["properties"]["provisioningState"]
+           }
     end
 
     def delete(instance_id)
@@ -128,7 +119,7 @@ module Bosh::AzureCloud
     end
     def set_tag(instance_id,tag)
        tagStr = ""
-       tag.each do |i| tagStr<<"#{i[0]}=#{i[1]};" end
+       tag.each do |i| tagStr<<"#{i[0]}=#{i[1]};" end    
        tagStr = tagStr[0..-2]
        invoke_azure_js_with_id(["setTag",instance_id,"Microsoft.Compute/virtualMachines",tagStr],logger)
     end
@@ -137,7 +128,7 @@ module Bosh::AzureCloud
        vm_name = contents.match("^*<Incarnation number=\"\\d*\" instance=\"(.*)\" guid=\"{[-0-9a-fA-F]+}\"[\\s]*/>")[1]
        generate_instance_id(vm_name,"")
     end
-
+    
     ##
     # Attach a disk to the Vm
     #
@@ -149,12 +140,12 @@ module Bosh::AzureCloud
        invoke_azure_js_with_id(["adddisk",instance_id,disk_uri],logger)
        get_volume_name(instance_id, disk_uri)
     end
-
+    
     def detach_disk(instance_id, disk_name)
         disk_uri= @disk_manager.get_disk_uri(disk_name)
         invoke_azure_js_with_id(["rmdisk",instance_id,disk_uri],logger)
     end
-
+    
     def get_disks(instance_id)
       logger.debug("get_disks(#{instance_id})")
       vm = find(instance_id) || cloud_error('Given instance id does not exist')
@@ -173,7 +164,7 @@ module Bosh::AzureCloud
       user_data[:dns] = {nameserver: dns} if dns
       Base64.strict_encode64(Yajl::Encoder.encode(user_data))
     end
-
+    
     def get_volume_name(instance_id, disk_name)
       data_disk = find(instance_id)["data_disks"].find { |disk| disk["vhd"]["uri"] == disk_name}
       data_disk || cloud_error('Given disk name is not attached to given instance id')
@@ -181,10 +172,11 @@ module Bosh::AzureCloud
       logger.info("get_volume_name return lun #{lun}")
       "/dev/sd#{('c'.ord + lun).chr}"
     end
-
+    
     def get_disk_lun(data_disk)
       data_disk["lun"] != "" ? data_disk["lun"].to_i : 0
     end
-
+    
   end
 end
+
