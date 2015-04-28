@@ -23,13 +23,13 @@ module Bosh::AzureCloud
       container_name = azure_properties['container_name'] || 'bosh'
 
       if azure_properties['tenant_id']
-        azure_cmd("azure login -u #{azure_properties['client_id']} -p '#{azure_properties['client_secret']}' --tenant #{azure_properties['tenant_id']} --service-principal --quiet ",logger)
+        azure_cmd("azure login -u #{azure_properties['client_id']} -p '#{azure_properties['client_secret']}' --tenant #{azure_properties['tenant_id']} --service-principal --quiet --json",logger)
       elsif azure_properties['client_id']
-        azure_cmd("azure login -u #{azure_properties['client_id']} -p '#{azure_properties['client_secret']}'",logger)
+        azure_cmd("azure login -u #{azure_properties['client_id']} -p '#{azure_properties['client_secret']}' --json",logger)
       end
 
       if azure_properties['subscription_id']
-        azure_cmd("azure account set  #{azure_properties['subscription_id']}",logger)
+        azure_cmd("azure account set  #{azure_properties['subscription_id']} --json",logger)
       end
 
 
