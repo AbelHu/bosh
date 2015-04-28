@@ -16,7 +16,7 @@ module Bosh::AzureCloud
       imageUri = @disk_manager.get_stemcell_uri(stemcell+".vhd")
       osvhdUri = @disk_manager.get_new_osdisk_uri(instanceid)
       sshKeyData = File.read(cloud_opts['ssh_certificate_file'])
-      location = get_azure_storage(@storage_manager.get_storage_account_name,cloud_opts['resource_group_name'])["location"]
+      location = get_azure_resource(cloud_opts['resource_group_name'],@storage_manager.get_storage_account_name,"Microsoft.Storage/storageAccounts")["location"]
       params = {
           :vmName              => instanceid,
           :nicName             => instanceid,
@@ -85,17 +85,19 @@ module Bosh::AzureCloud
 
     
     def find(instance_id)
-       vm= get_azure_vm(instance_id,nil) 
-       publicip = get_azure_publicip(instance_id,nil)
+       vm= JSON(invoke_azure_js_with_id(["get",instance_id,"Microsoft.Compute/virtualMachines"],logger))
+       publicip = invoke_azure_js_with_id(["get",instance_id,"Microsoft.Network/publicIPAddresses"],logger)
+       publicip = JSON(publicip) if publicip
        dipaddress = (publicip!=nil)?publicip["properties"]["ipAddress"]:nil;
-       nic = get_azure_nic(instance_id,nil)["properties"]["ipConfigurations"][0]
-      return {
-              "data_disks"    => vm["properties"]["storageProfile"]["dataDisks"],
-              "ipaddress"     => nic["properties"]["privateIPAddress"],
-               "vm_name"     => vm["name"],
-              "dipaddress"    => dipaddress,
-               "status"        => vm["properties"]["provisioningState"]
-           }
+
+       nic = JSON(invoke_azure_js_with_id(["get",instance_id,"Microsoft.Network/networkInterfaces"],logger))["properties"]["ipConfigurations"][0]
+       return {
+                    "data_disks"    => vm["properties"]["storageProfile"]["dataDisks"],
+                    "ipaddress"     => nic["properties"]["privateIPAddress"],
+                    "vm_name"       => vm["name"],
+                    "dipaddress"    => dipaddress,
+                    "status"        => vm["properties"]["provisioningState"]
+               }
     end
 
     def delete(instance_id)

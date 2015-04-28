@@ -34,23 +34,6 @@ module Bosh::AzureCloud
       content
     end
 
-     def get_azure_storage(name,resource_group)
-       return get_azure_resource(resource_group,name,"Microsoft.Storage/storageAccounts")
-     end
-
-    def get_azure_vm(name,resource_group)
-       return get_azure_resource(resource_group,name,"Microsoft.Compute/virtualMachines")
-    end
-
-    def get_azure_publicip(name,resource_group)
-       return get_azure_resource(resource_group,name,"Microsoft.Network/publicIPAddresses")
-    end
-
-     def get_azure_nic(name,resource_group)
-        return get_azure_resource(resource_group,name,"Microsoft.Network/networkInterfaces")
-     end
-
-
     def get_azure_resource(resource_group,name,type)
         resource_group = name[5..-41] if resource_group==nil || resource_group.length==0 
         ret_str = invoke_azure_js("-t get -r #{resource_group} #{name} #{type}".split(" "),logger)
