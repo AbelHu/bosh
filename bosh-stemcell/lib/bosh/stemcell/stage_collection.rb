@@ -62,6 +62,8 @@ module Bosh::Stemcell
           qcow2_package_stages
         when 'ovf' then
           ovf_package_stages
+        when 'vhd' then
+          vhd_package_stages
         when 'files' then
           files_package_stages
       end
@@ -194,6 +196,25 @@ module Bosh::Stemcell
       ]
     end
 
+    def azure_stages
+      [
+        # Misc
+        :system_network,
+        :system_azure_modules,
+        :system_azure_wala,
+        :system_parameters,
+        # Finalisation,
+        :bosh_clean,
+        :bosh_harden,
+        :bosh_disable_password_authentication,
+        :bosh_azure_agent_settings,
+        # Image/bootloader
+        :image_create,
+        :image_install_grub,
+        :image_azure_update_grub,
+      ]
+    end
+
     def centos_os_stages
       os_stages = [
           :base_centos,
@@ -273,6 +294,12 @@ module Bosh::Stemcell
       ]
     end
 
+    def vhd_package_stages
+      [
+        :prepare_vhd_image_stemcell,
+      ]
+    end
+
     def files_package_stages
       [
         :prepare_files_image_stemcell,
@@ -285,28 +312,6 @@ module Bosh::Stemcell
 
     def is_rhel?
       operating_system.instance_of?(OperatingSystem::Rhel)
-    end
-
-    def azure_stages
-      [
-        # Misc
-        :system_azure_network,
-        :system_azure_modules,
-        :system_azure_wala,
-        :system_parameters,
-        # Finalisation,
-        :bosh_clean,
-        :bosh_harden,
-        :bosh_harden_ssh,
-        :bosh_azure_agent_settings,
-        # Image/bootloader
-        :image_create,
-        :image_install_grub,
-        :image_azure_update_grub,
-        :image_azure_prepare_stemcell,
-        # Final stemcell
-        :stemcell
-      ]
     end
   end
 end

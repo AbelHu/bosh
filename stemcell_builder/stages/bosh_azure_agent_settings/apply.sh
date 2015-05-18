@@ -3,44 +3,28 @@
 base_dir=$(readlink -nf $(dirname $0)/../..)
 source $base_dir/lib/prelude_apply.bash
 
-agent_settings_file=$chroot/var/vcap/bosh/agent.json
-
-if [ "${stemcell_operating_system}" == "centos" ]; then
-
-  cat > $agent_settings_file <<JSON
+cat > $chroot/var/vcap/bosh/agent.json <<JSON
 {
   "Platform": {
     "Linux": {
-      "UseDefaultTmpDir": true,
-      "UsePreformattedPersistentDisk": false,
-      "BindMountPersistentDisk": false
+      "DevicePathResolutionType": "scsi"
     }
   },
-  "Infrastructure" : {
-    "MetadataService": {
-      "UseConfigDrive": false
+  "Infrastructure": {
+    "NetworkingType": "dhcp",
+
+    "Settings": {
+      "Sources": [
+        {
+          "Type": "FILE",
+          "MetaDataPath": "",
+          "UserDataPath": "/var/lib/waagent/CustomData",
+          "SettingsPath": ""
+        }
+      ],
+      "UseServerName": true,
+      "UseRegistry": true
     }
   }
 }
 JSON
-
-else
-
-  cat > $agent_settings_file <<JSON
-{
-  "Platform": {
-    "Linux": {
-      "UseDefaultTmpDir": true,
-      "UsePreformattedPersistentDisk": false,
-      "BindMountPersistentDisk": false
-    }
-  },
-  "Infrastructure" : {
-    "MetadataService": {
-      "UseConfigDrive": false
-    }
-  }
-}
-JSON
-
-fi
