@@ -326,13 +326,20 @@ module Bosh::Director
 
   describe InstanceUpdater::VmUpdater::VmCreator do
     subject!(:vm_creator) { described_class.new(instance, cloud, logger) }
-    let(:instance) { instance_double('Bosh::Director::DeploymentPlan::Instance', model: instance_model) }
+    let(:deployment_vm) { instance_double('Bosh::Director::DeploymentPlan::Vm')}
+    let(:instance) {
+      instance_double('Bosh::Director::DeploymentPlan::Instance',
+        model: instance_model,
+        bind_to_vm_model: nil,
+        vm: deployment_vm) }
     let(:instance_model) { Models::Instance.make(vm: nil) }
     let(:cloud) { instance_double('Bosh::Cloud') }
 
     describe '#create' do
       before { allow(instance).to receive(:job).with(no_args).and_return(job) }
       let(:job) { instance_double('Bosh::Director::DeploymentPlan::Job') }
+
+      before { allow(deployment_vm).to receive('model=').with(vm_model)}
 
       before { allow(job).to receive(:deployment).with(no_args).and_return(deployment_plan) }
       let(:deployment_plan) { instance_double('Bosh::Director::DeploymentPlan::Planner', model: deployment_model) }
@@ -417,10 +424,10 @@ module Bosh::Director
       context 'when vm creation succeeds' do
         before { allow(Bosh::Director::VmCreator).to receive(:create).and_return(vm_model) }
 
-        it 'saves association between instance and the vm model' do
-          expect {
-            vm_creator.create(nil)
-          }.to change { instance_model.refresh.vm }.from(nil).to(vm_model)
+        it 'binds vm model to the instance' do
+          expect(instance).to receive(:bind_to_vm_model).with(vm_model)
+
+          vm_creator.create(nil)
         end
 
         it 'waits for new VM agent to respond' do
@@ -434,7 +441,7 @@ module Bosh::Director
         end
 
         context 'when saving association between instance and the vm model fails' do
-          before { allow(instance_model).to receive(:save).and_raise(error) }
+          before { allow(instance).to receive(:bind_to_vm_model).and_raise(error) }
           let(:error) { Exception.new }
 
           it 'raises association error after deleting created vm from the cloud and the database' do

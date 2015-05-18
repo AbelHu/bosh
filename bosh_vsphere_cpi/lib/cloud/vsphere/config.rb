@@ -1,6 +1,3 @@
-require 'ruby_vim_sdk'
-require 'cloud/vsphere/cluster_config'
-
 module VSphereCloud
   class Config
     def self.build(config_hash)
@@ -74,10 +71,6 @@ module VSphereCloud
       config.fetch('mem_overcommit_ratio', @default_overcommit_ratio)
     end
 
-    def copy_disks
-      !!config['copy_disks']
-    end
-
     def agent
       config['agent']
     end
@@ -122,10 +115,6 @@ module VSphereCloud
       @cluster_objs ||= cluster_objs
     end
 
-    def datacenter_allow_mixed_datastores
-      !!vcenter_datacenter['allow_mixed_datastores']
-    end
-
     def datacenter_use_sub_folder
       datacenter_clusters.any? { |_, cluster| cluster.resource_pool } ||
         !!vcenter_datacenter['use_sub_folder']
@@ -155,7 +144,6 @@ module VSphereCloud
           optional('cpi_log') => enum(String, Object),
           optional('soap_log') => enum(String, Object),
           optional('mem_overcommit_ratio') => Numeric,
-          optional('copy_disks') => bool,
           'vcenters' => [{
             'host' => String,
             'user' => String,
@@ -171,11 +159,7 @@ module VSphereCloud
               optional('allow_mixed_datastores') => bool,
               'clusters' => [enum(String,
                 dict(String, {
-                  'resource_pool' => String,
-                  optional('drs_rules') => [{
-                    'name' => String,
-                    'type' => 'separate_vms'
-                  }]
+                  'resource_pool' => String
                 })
               )]
             }]

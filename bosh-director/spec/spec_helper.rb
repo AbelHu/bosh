@@ -78,9 +78,6 @@ module SpecHelper
 
       @dns_migrations = File.expand_path("../../db/migrations/dns", __FILE__)
       @director_migrations = File.expand_path("../../db/migrations/director", __FILE__)
-      vsphere_cpi_path = $LOAD_PATH.find { |p| File.exist?(File.join(p, File.join("cloud", "vsphere"))) }
-      @vsphere_cpi_migrations = File.expand_path("../db/migrations", vsphere_cpi_path)
-
       Sequel.extension :migration
 
       connect_database(@temp_dir)
@@ -118,7 +115,6 @@ module SpecHelper
     def run_migrations
       Sequel::Migrator.apply(@dns_db, @dns_migrations, nil)
       Sequel::Migrator.apply(@db, @director_migrations, nil)
-      Sequel::TimestampMigrator.new(@db, @vsphere_cpi_migrations, :table => "vsphere_cpi_schema").run
     end
 
     def reset_database
@@ -206,4 +202,74 @@ def check_event_log
   yield events
 end
 
+def strip_heredoc(str)
+  indent = str.scan(/^[ \t]*(?=\S)/).min.size || 0
+  str.gsub(/^[ \t]{#{indent}}/, '')
+end
 
+module ManifestHelper
+  class << self
+    def default_deployment_manifest(overrides = {})
+      {
+        'name' => 'deployment-name',
+        'releases' => [release],
+        'update' => {
+          'max_in_flight' => 10,
+          'canaries' => 2,
+          'canary_watch_time' => 1000,
+          'update_watch_time' => 1000,
+        },
+      }.merge(overrides)
+    end
+
+    def default_legacy_manifest(overrides = {})
+      (default_deployment_manifest.merge(default_iaas_manifest)).merge(overrides)
+    end
+
+    def default_iaas_manifest(overrides = {})
+      {
+        'networks' => [ManifestHelper::network],
+        'resource_pools' => [ManifestHelper::resource_pool],
+        'compilation' => {
+          'workers' => 1,
+          'network'=>'network-name',
+          'cloud_properties' => {},
+        },
+      }.merge(overrides)
+    end
+
+    def release(overrides = {})
+      {
+        'name' => 'release-name',
+        'version' => 'latest',
+      }.merge(overrides)
+    end
+
+    def network(overrides = {})
+      { 'name' => 'network-name', 'subnets' => [] }.merge(overrides)
+    end
+
+    def disk_pool(name='dp-name')
+      {'name' => name, 'disk_size' => 10000}.merge(overrides)
+    end
+
+    def job(overrides = {})
+      {
+        'name' => 'job-name',
+        'resource_pool' => 'rp-name',
+        'instances' => 1,
+        'networks' => [{'name' => 'network-name'}],
+        'templates' => [{'name' => 'template-name'}]
+      }.merge(overrides)
+    end
+
+    def resource_pool(overrides = {})
+      {
+        'name' => 'rp-name',
+        'network'=>'network-name',
+        'stemcell'=> {'name' => 'default','version'=>'1'},
+        'cloud_properties'=>{}
+      }.merge(overrides)
+    end
+  end
+end

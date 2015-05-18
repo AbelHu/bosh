@@ -1,4 +1,4 @@
-require 'cloud/vsphere/soap_stub'
+require 'spec_helper'
 require 'tempfile'
 
 describe VSphereCloud::SoapStub do

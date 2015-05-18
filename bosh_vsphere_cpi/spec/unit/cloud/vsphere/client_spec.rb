@@ -1,6 +1,5 @@
 require 'spec_helper'
-require 'fakefs/spec_helpers'
-require 'cloud/vsphere/client'
+# require 'cloud/vsphere/client'
 
 module VSphereCloud
   describe Client do
@@ -26,47 +25,6 @@ module VSphereCloud
         soap_stub = instance_double('VSphereCloud::SoapStub', create: stub_adapter)
         expect(SoapStub).to receive(:new).with('fake-host', 'fake-soap-log').and_return(soap_stub)
         expect(client.soap_stub).to eq(stub_adapter)
-      end
-    end
-
-    describe '#has_disk?' do
-      let(:virtual_disk_manager) { double(:virtual_disk_manager) }
-      let(:datacenter) { double(:datacenter) }
-      before do
-        allow(fake_service_content).to receive(:virtual_disk_manager).
-          and_return(virtual_disk_manager)
-
-        allow(fake_search_index).to receive(:find_by_inventory_path).with('fake-datacenter').
-          and_return(datacenter)
-      end
-
-      it 'finds vmdk disk' do
-        allow(virtual_disk_manager).to receive(:query_virtual_disk_uuid).
-          with('fake-path.vmdk', datacenter).
-          and_return('fake-uuid')
-
-        expect(client.has_disk?('fake-path', 'fake-datacenter')).to be(true)
-      end
-
-      it 'finds -flat.vmdk disk' do
-        allow(virtual_disk_manager).to receive(:query_virtual_disk_uuid).
-          with('fake-path.vmdk', datacenter).
-          and_raise(
-            VimSdk::SoapError.new('File was not found', double(:error_object))
-          )
-        allow(virtual_disk_manager).to receive(:query_virtual_disk_uuid).
-          with('fake-path-flat.vmdk', datacenter).
-          and_return('fake-uuid')
-
-        expect(client.has_disk?('fake-path', 'fake-datacenter')).to be(true)
-      end
-
-      it 'raises DiskNotFound if nor .vmdk nor -flat.vmdk disk exist' do
-        allow(virtual_disk_manager).to receive(:query_virtual_disk_uuid).and_raise(
-          VimSdk::SoapError.new('File was not found', double(:error_object))
-        )
-
-        expect(client.has_disk?('fake-path', 'fake-datacenter')).to be(false)
       end
     end
 
@@ -260,18 +218,15 @@ module VSphereCloud
 
       context 'when file manager raises other error' do
         it 'raises that error' do
-          error = RuntimeError.new('Invalid datastore path some/path')
+          error = RuntimeError.new('Invalid datastore path some/path.vmdk')
           expect(client).to receive(:wait_for_task).with(vmdk_task).
             and_raise(error)
           expect(file_manager).to receive(:delete_file).
             with('some/path.vmdk', datacenter).
             and_return(vmdk_task)
-          expect(file_manager).to receive(:delete_file).
-            with('some/path-flat.vmdk', datacenter).
-            and_return(flat_vmdk_task)
 
           expect {
-            client.delete_disk(datacenter, 'some/path')
+            client.delete_disk(datacenter, 'some/path.vmdk')
           }.to raise_error
         end
       end

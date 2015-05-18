@@ -16,6 +16,8 @@ describe Bosh::OpenStackCloud::Cloud do
     @disable_snapshots = get_config(:disable_snapshots, 'BOSH_OPENSTACK_DISABLE_SNAPSHOTS', false)
     @default_key_name  = get_config(:default_key_name, 'BOSH_OPENSTACK_DEFAULT_KEY_NAME', 'jenkins')
     @config_drive      = get_config(:config_drive, 'BOSH_OPENSTACK_CONFIG_DRIVE', 'cdrom')
+    @ignore_server_az  = get_config(:ignore_server_az, 'BOSH_OPENSTACK_IGNORE_SERVER_AZ', 'false')
+    @instance_type     = get_config(:instance_type, 'BOSH_OPENSTACK_INSTANCE_TYPE', 'm1.small')
 
     # some environments may not have this set, and it isn't strictly necessary so don't raise if it isn't set
     @region             = get_config(:region, 'BOSH_OPENSTACK_REGION', nil)
@@ -42,6 +44,7 @@ describe Bosh::OpenStackCloud::Cloud do
           'type' => boot_volume_type
         },
         'config_drive' => config_drive,
+        'ignore_server_availability_zone' => @ignore_server_az,
       },
       'registry' => {
         'endpoint' => 'fake',
@@ -213,6 +216,42 @@ describe Bosh::OpenStackCloud::Cloud do
     end
   end
 
+  context 'when vm creation fails' do
+    let(:network_spec_that_fails) do
+      {
+        'default' => {
+          'type' => 'dynamic',
+          'cloud_properties' => {
+            'net_id' => @net_id
+          }
+        },
+        'vip' => {
+          'type' => 'vip',
+          'ip' => '255.255.255.255',
+        }
+      }
+    end
+
+    def active_vms
+      cpi.openstack.servers.reject do |s|
+        if s.os_ext_sts_task_state && s.os_ext_sts_task_state.downcase.to_sym == :deleting
+          true
+        else
+          [:terminated, :deleted].include?(s.state.downcase.to_sym)
+        end
+      end
+    end
+
+    it 'cleans up vm' do
+      vms_size = active_vms.size
+      expect {
+        create_vm(@stemcell_id, network_spec_that_fails, [])
+      }.to raise_error Bosh::Clouds::VMCreationFailed, /Floating IP 255.255.255.255 not allocated/
+
+      expect(active_vms.size).to eq(vms_size)
+    end
+  end
+
   def vm_lifecycle(stemcell_id, network_spec, disk_locality, cloud_properties = {})
     vm_id = create_vm(stemcell_id, network_spec, disk_locality)
     disk_id = create_disk(vm_id, cloud_properties)
@@ -233,7 +272,7 @@ describe Bosh::OpenStackCloud::Cloud do
     vm_id = cpi.create_vm(
       'agent-007',
       stemcell_id,
-      { 'instance_type' => 'm1.small'},
+      { 'instance_type' => @instance_type },
       network_spec,
       disk_locality,
       { 'key' => 'value'}

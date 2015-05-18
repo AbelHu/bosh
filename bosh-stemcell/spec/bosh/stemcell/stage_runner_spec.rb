@@ -148,5 +148,63 @@ module Bosh::Stemcell
         stage_runner.apply(stages)
       end
     end
+
+    describe '#configure_and_apply' do
+      before do
+        stages.each do |stage|
+          stage_dir = File.join(File.join(build_path, 'stages'), stage.to_s)
+          FileUtils.mkdir_p(stage_dir)
+
+          config_script = File.join(stage_dir, 'config.sh')
+          FileUtils.touch(config_script)
+          File.chmod(0700, config_script)
+        end
+
+        allow(File).to receive(:executable?).and_return(true) # because FakeFs does not support :executable?
+
+        # stage_runner requires that we're running as uid 1000 (usually 'ubuntu' user in the aws build env)
+        allow(Process).to receive(:euid).and_return(1000)
+
+      end
+
+      context 'when resume_from is unset' do
+        it 'runs all stages' do
+          expect(stage_runner).to receive(:puts).with("=== Configuring 'stage_0' stage ===")
+          expect(stage_runner).to receive(:puts).with("=== Configuring 'stage_1' stage ===")
+          expect(stage_runner).to receive(:puts).with("=== Applying 'stage_0' stage ===")
+          expect(stage_runner).to receive(:puts).with("=== Applying 'stage_1' stage ===")
+
+          stage_runner.configure_and_apply(stages)
+        end
+      end
+
+      context 'when resume_from is set' do
+        it 'skips stages before resume_from ' do
+          expect(stage_runner).to_not receive(:puts).with("=== Configuring 'stage_0' stage ===")
+          expect(stage_runner).to receive(:puts).with("=== Configuring 'stage_1' stage ===")
+          expect(stage_runner).to_not receive(:puts).with("=== Applying 'stage_0' stage ===")
+          expect(stage_runner).to receive(:puts).with("=== Applying 'stage_1' stage ===")
+
+          stage_runner.configure_and_apply(stages, 'stage_1')
+        end
+      end
+
+      context 'when resume_from is set to an unknown stage name' do
+        it 'raises an error' do
+          expect {
+            stage_runner.configure_and_apply(stages, 'this_stage_totally_doesnt_exist')
+          }.to raise_error("Can't find stage 'this_stage_totally_doesnt_exist' to resume from. Aborting.")
+        end
+      end
+
+      context 'when effective UID is not 1000' do
+        it 'fails with an error message' do
+          allow(Process).to receive(:euid).and_return(999)
+          expect {
+            stage_runner.configure_and_apply(stages)
+          }.to raise_error("You must build stemcells as a user with UID 1000. Your effective UID now is 999.")
+        end
+      end
+    end
   end
 end

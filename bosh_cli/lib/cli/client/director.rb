@@ -1,6 +1,6 @@
-# Copyright (c) 2009-2012 VMware, Inc.
 require 'cli/core_ext'
 require 'cli/errors'
+require 'cli/cloud_config'
 
 require 'json'
 require 'httpclient'
@@ -19,16 +19,10 @@ module Bosh
 
         attr_reader :director_uri
 
-        # @return [String]
-        attr_accessor :user
-
-        # @return [String]
-        attr_accessor :password
-
         # Options can include:
         # * :no_track => true - do not use +TaskTracker+ for long-running
         #                       +request_and_track+ calls
-        def initialize(director_uri, user = nil, password = nil, options = {})
+        def initialize(director_uri, credentials = nil, options = {})
           if director_uri.nil? || director_uri =~ /^\s*$/
             raise DirectorMissing, 'no director URI given'
           end
@@ -37,8 +31,7 @@ module Bosh
           @director_ip         = Resolv.getaddresses(@director_uri.host).last
           @scheme              = @director_uri.scheme
           @port                = @director_uri.port
-          @user                = user
-          @password            = password
+          @credentials         = credentials
           @track_tasks         = !options.delete(:no_track)
           @num_retries         = options.fetch(:num_retries, 5)
           @retry_wait_interval = options.fetch(:retry_wait_interval, 5)
@@ -64,7 +57,14 @@ module Bosh
           end
         end
 
+        def login(username, password)
+          @credentials = BasicCredentials.new(username, password)
+          authenticated?
+        end
+
         def authenticated?
+          # getting status verifies credentials
+          # if credentials are wrong it will raise DirectorError
           status = get_status
           # Backward compatibility: older directors return 200
           # only for logged in users
@@ -529,11 +529,6 @@ module Bosh
           get_json('/locks')
         end
 
-        [:post, :put, :get, :delete].each do |method_name|
-          define_method method_name do |*args|
-            request(method_name, *args)
-          end
-        end
 
         # Perform director HTTP request and track director task (if request
         # started one).
@@ -576,6 +571,38 @@ module Bosh
           request_and_track(method, uri, options.merge(:payload => file))
         ensure
           file.stop_progress_bar if file
+        end
+
+        def get_cloud_config
+          _, cloud_configs = get_json_with_status('/cloud_configs?limit=1')
+          latest = cloud_configs.first
+
+          if !latest.nil?
+            Bosh::Cli::CloudConfig.new(
+              properties: latest["properties"],
+              created_at: latest["created_at"])
+          end
+        end
+
+        def update_cloud_config(cloud_config_yaml)
+          status, _ = post('/cloud_configs', 'text/yaml', cloud_config_yaml)
+          status == 201
+        end
+
+        def post(uri, content_type = nil, payload = nil, headers = {}, options = {})
+          request(:post, uri, content_type, payload, headers, options)
+        end
+
+        def put(uri, content_type = nil, payload = nil, headers = {}, options = {})
+          request(:put, uri, content_type, payload, headers, options)
+        end
+
+        def get(uri, content_type = nil, payload = nil, headers = {}, options = {})
+          request(:get, uri, content_type, payload, headers, options)
+        end
+
+        def delete(uri, content_type = nil, payload = nil, headers = {}, options = {})
+          request(:delete, uri, content_type, payload, headers, options)
         end
 
         private
@@ -678,11 +705,8 @@ module Bosh
           http_client.ssl_config.verify_mode     = OpenSSL::SSL::VERIFY_NONE
           http_client.ssl_config.verify_callback = Proc.new {}
 
-          # HTTPClient#set_auth doesn't seem to work properly,
-          # injecting header manually instead.
-          if @user && @password
-            headers['Authorization'] = 'Basic ' +
-              Base64.encode64("#{@user}:#{@password}").strip
+          if @credentials
+            headers['Authorization'] = @credentials.authorization_header
           end
 
           http_client.request(method, uri, {
@@ -706,7 +730,7 @@ module Bosh
 
         # HTTPClient doesn't have a root exception but instead subclasses RuntimeError
         rescue RuntimeError => e
-          puts "Perform request #{method}, #{uri}, #{headers.inspect}, #{payload.inspect}"
+          say("Perform request #{method}, #{uri}, #{headers.inspect}, #{payload.inspect}")
           err("REST API call exception: #{e}")
         end
 

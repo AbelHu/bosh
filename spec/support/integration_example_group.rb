@@ -29,8 +29,8 @@ module IntegrationExampleGroup
       ClientSandbox.bosh_work_dir,
       ClientSandbox.bosh_config,
       current_sandbox.cpi.method(:agent_log_path),
-      @current_sandbox.nats_log_path,
-      @current_sandbox.saved_logs_path,
+      current_sandbox.nats_log_path,
+      current_sandbox.saved_logs_path,
       logger
     )
   end
@@ -40,8 +40,8 @@ module IntegrationExampleGroup
       work_dir,
       ClientSandbox.bosh_config,
       current_sandbox.cpi.method(:agent_log_path),
-      @current_sandbox.nats_log_path,
-      @current_sandbox.saved_logs_path,
+      current_sandbox.nats_log_path,
+      current_sandbox.saved_logs_path,
       logger
     )
   end
@@ -55,6 +55,12 @@ module IntegrationExampleGroup
     bosh_runner.run('login admin admin')
   end
 
+  def upload_cloud_config(options={})
+    cloud_config_hash = options.fetch(:cloud_config_hash, Bosh::Spec::Deployments.simple_cloud_config)
+    cloud_config_manifest = yaml_file('simple', cloud_config_hash)
+    bosh_runner.run("update cloud-config #{cloud_config_manifest.path}")
+  end
+
   def create_and_upload_test_release
     Dir.chdir(ClientSandbox.test_release_dir) do
       bosh_runner.run_in_current_dir('create release')
@@ -63,7 +69,11 @@ module IntegrationExampleGroup
   end
 
   def upload_stemcell
-    bosh_runner.run("upload stemcell #{spec_asset('valid_stemcell.tgz')}")
+    bosh_runner.run("upload stemcell #{spec_asset('valid_stemcell.tgz')} --skip-if-exists")
+  end
+
+  def delete_stemcell
+    bosh_runner.run("delete stemcell ubuntu-stemcell 1")
   end
 
   def set_deployment(options)
@@ -81,10 +91,11 @@ module IntegrationExampleGroup
     bosh_runner.run("#{no_track ? '--no-track ' : ''}deploy#{redact_diff ? ' --redact-diff' : ''}", options)
   end
 
-  def deploy_simple(options={})
+  def deploy_from_scratch(options={})
     target_and_login
     create_and_upload_test_release
     upload_stemcell
+    upload_cloud_config(options) unless options[:legacy]
     deploy_simple_manifest(options)
   end
 
@@ -133,21 +144,25 @@ end
 
 module IntegrationSandboxHelpers
   def start_sandbox
+    unless sandbox_started?
+      at_exit do
+        begin
+          status = $! ? ($!.is_a?(::SystemExit) ? $!.status : 1) : 0
+          logger.info("\n  Stopping sandboxed environment for BOSH tests...")
+          current_sandbox.stop
+          cleanup_sandbox_dir
+        rescue => e
+          logger.error "Failed to stop sandbox! #{e.message}\n#{e.backtrace.join("\n")}"
+        ensure
+          exit(status)
+        end
+      end
+    end
+
     $sandbox_started = true
 
     logger.info('Starting sandboxed environment for BOSH tests...')
     current_sandbox.start
-
-    at_exit do
-      begin
-        status = $! ? ($!.is_a?(::SystemExit) ? $!.status : 1) : 0
-        logger.info("\n  Stopping sandboxed environment for BOSH tests...")
-        current_sandbox.stop
-        cleanup_sandbox_dir
-      ensure
-        exit(status)
-      end
-    end
   end
 
   def sandbox_started?
@@ -155,33 +170,38 @@ module IntegrationSandboxHelpers
   end
 
   def current_sandbox
-    @current_sandbox = Thread.current[:sandbox] || Bosh::Dev::Sandbox::Main.from_env
-    Thread.current[:sandbox] = @current_sandbox
+    sandbox = Thread.current[:sandbox]
+    raise "call prepare_sandbox to set up this thread's sandbox" if sandbox.nil?
+    sandbox
   end
 
   def prepare_sandbox
     cleanup_sandbox_dir
     setup_test_release_dir
     setup_bosh_work_dir
+    setup_home_dir
+    Thread.current[:sandbox] ||= Bosh::Dev::Sandbox::Main.from_env
   end
 
-  def reset_sandbox(desc)
-    current_sandbox.reset(desc)
+  def reconfigure_sandbox(options)
+    current_sandbox.reconfigure(options)
+  end
+
+  def reset_sandbox
+    current_sandbox.reset
     FileUtils.rm_rf(current_sandbox.cloud_storage_dir)
   end
 
-  private
+  def setup_test_release_dir(destination_dir = ClientSandbox.test_release_dir)
+    FileUtils.rm_rf(destination_dir)
+    FileUtils.cp_r(TEST_RELEASE_TEMPLATE, destination_dir, :preserve => true)
 
-  def setup_test_release_dir
-    FileUtils.rm_rf(ClientSandbox.test_release_dir)
-    FileUtils.cp_r(TEST_RELEASE_TEMPLATE, ClientSandbox.test_release_dir, :preserve => true)
-
-    final_config_path = File.join(ClientSandbox.test_release_dir, 'config', 'final.yml')
+    final_config_path = File.join(destination_dir, 'config', 'final.yml')
     final_config = YAML.load_file(final_config_path)
-    final_config['blobstore']['options']['blobstore_path'] = File.join(ClientSandbox.base_dir, 'release_blobstore')
+    final_config['blobstore']['options']['blobstore_path'] = ClientSandbox.blobstore_dir
     File.open(final_config_path, 'w') { |file| file.write(YAML.dump(final_config)) }
 
-    Dir.chdir(ClientSandbox.test_release_dir) do
+    Dir.chdir(destination_dir) do
       ignore = %w(
         blobs
         dev-releases
@@ -194,6 +214,7 @@ module IntegrationSandboxHelpers
         .final_builds/packages/**/*.tgz
         blobs
         .blobs
+        .DS_Store
       )
 
       File.open('.gitignore', 'w+') do |f|
@@ -208,8 +229,15 @@ module IntegrationSandboxHelpers
     end
   end
 
+  private
+
   def setup_bosh_work_dir
     FileUtils.cp_r(BOSH_WORK_TEMPLATE, ClientSandbox.bosh_work_dir, :preserve => true)
+  end
+
+  def setup_home_dir
+    FileUtils.mkdir_p(ClientSandbox.home_dir)
+    ENV['HOME'] = ClientSandbox.home_dir
   end
 
   def cleanup_sandbox_dir
@@ -219,13 +247,14 @@ module IntegrationSandboxHelpers
 end
 
 module IntegrationSandboxBeforeHelpers
-  def with_reset_sandbox_before_each
+  def with_reset_sandbox_before_each(options={})
     before do |example|
       prepare_sandbox
+      reconfigure_sandbox(options)
       if !sandbox_started?
         start_sandbox
       elsif !example.metadata[:no_reset]
-        reset_sandbox(example ? example.metadata[:description] : '')
+        reset_sandbox
       end
     end
   end
@@ -237,7 +266,7 @@ module IntegrationSandboxBeforeHelpers
       if !sandbox_started?
         start_sandbox
       else
-        reset_sandbox('')
+        reset_sandbox
       end
     end
   end

@@ -29,7 +29,6 @@ describe VSphereCloud::Cloud, external_cpi: true do
 
   def config
     return @config if @config
-    @db_path = Tempfile.new('vsphere_cpi.db').path
     datacenter_name          = ENV.fetch('BOSH_VSPHERE_CPI_DATACENTER', 'BOSH_DC')
     cluster                  = ENV.fetch('BOSH_VSPHERE_CPI_CLUSTER', 'BOSH_CL')
     second_cluster           = ENV.fetch('BOSH_VSPHERE_CPI_SECOND_CLUSTER', 'BOSH_CL2')
@@ -38,7 +37,7 @@ describe VSphereCloud::Cloud, external_cpi: true do
     user                      = ENV.fetch('BOSH_VSPHERE_CPI_USER')
     password                  = ENV.fetch('BOSH_VSPHERE_CPI_PASSWORD', '')
     resource_pool_name        = ENV.fetch('BOSH_VSPHERE_CPI_RESOURCE_POOL', 'ACCEPTANCE_RP')
-    second_resource_pool_name = ENV.fetch('BOSH_VSPHERE_CPI_SECOND_RESOURCE_POOL', 'ACCEPTANCE_RP')
+    second_resource_pool_name = ENV.fetch('BOSH_VSPHERE_CPI_SECOND_CLUSTER_RESOURCE_POOL', 'ACCEPTANCE_RP')
 
     client = VSphereCloud::Client.new("https://#{host}/sdk/vimService").tap do |client|
       client.login(user, password, 'en')
@@ -53,10 +52,6 @@ describe VSphereCloud::Cloud, external_cpi: true do
     prepare_tests_folder(client, datacenter_name, disk_folder_name)
 
     @config = {
-      'db' => {
-        'database' => @db_path,
-        'adapter' => 'sqlite',
-      },
       'cloud' => {
         'properties' => {
           'agent' => {
@@ -121,16 +116,6 @@ describe VSphereCloud::Cloud, external_cpi: true do
   def external_cpi_result(method, *arguments)
     response = external_cpi_response(method, *arguments)
     response['result']
-  end
-
-  describe 'migrations' do
-    it 'runs migrations on database from config' do
-      run_vsphere_cpi({})
-      db = Sequel.sqlite(database: @db_path)
-      result = db['SELECT * FROM vsphere_cpi_schema']
-      expect(result.count).to be > 0
-      expect(result.first[:filename]).to match(/initial/)
-    end
   end
 
   # Thin integration test so

@@ -13,6 +13,18 @@ module Bosh::Spec
       Dir.chdir(@bosh_work_dir) { run_in_current_dir(cmd, options) }
     end
 
+    def run_interactively(cmd, env = {})
+      Dir.chdir(@bosh_work_dir) do
+        BlueShell::Runner.run env, "bosh -c #{@bosh_config} #{cmd}" do |runner|
+          yield runner
+        end
+      end
+    end
+
+    def reset
+      FileUtils.rm_rf(@bosh_config)
+    end
+
     def run_in_current_dir(cmd, options = {})
       failure_expected = options.fetch(:failure_expected, false)
       interactive_mode = options.fetch(:interactive, false) ? '' : '-n'

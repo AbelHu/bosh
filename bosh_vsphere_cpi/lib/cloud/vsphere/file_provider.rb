@@ -1,6 +1,6 @@
 module VSphereCloud
   class FileProvider
-    include RetryBlock
+    include VSphereCloud::RetryBlock
 
     def initialize(rest_client, vcenter_host)
       @vcenter_host = vcenter_host

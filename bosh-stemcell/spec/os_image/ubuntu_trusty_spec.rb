@@ -1,7 +1,9 @@
 require 'spec_helper'
 
 describe 'Ubuntu 14.04 OS image', os_image: true do
-  it_behaves_like 'an OS image'
+  it_behaves_like 'every OS image'
+  it_behaves_like 'an upstart-based OS image'
+  it_behaves_like 'a Linux kernel 3.x based OS image'
 
   describe package('apt') do
     it { should be_installed }
@@ -93,6 +95,7 @@ describe 'Ubuntu 14.04 OS image', os_image: true do
       dnsutils
       tcpdump
       iputils-arping
+      anacron
       curl
       wget
       libcurl3
@@ -112,13 +115,16 @@ describe 'Ubuntu 14.04 OS image', os_image: true do
       iptables
       sysstat
       rsync
+      rsyslog
+      rsyslog-relp
+      rsyslog-gnutls
+      rsyslog-mmjsonparse
       openssh-server
       traceroute
       libncurses5-dev
       quota
       libaio1
       gdb
-      tripwire
       libcap2-bin
       libcap-dev
       libbz2-dev
@@ -144,6 +150,36 @@ describe 'Ubuntu 14.04 OS image', os_image: true do
     end
   end
 
+  context 'installed by base_ssh' do
+    subject(:sshd_config) { file('/etc/ssh/sshd_config') }
+
+    it 'disallows CBC ciphers' do
+      ciphers = %w(
+        chacha20-poly1305@openssh.com
+        aes256-gcm@openssh.com
+        aes128-gcm@openssh.com
+        aes256-ctr
+        aes192-ctr
+        aes128-ctr
+      ).join(',')
+      expect(sshd_config).to contain(/^Ciphers #{ciphers}$/)
+    end
+
+    it 'allows only secure HMACs and the weaker SHA1 HMAC required by golang ssh lib' do
+      macs = %w(
+        hmac-sha2-512-etm@openssh.com
+        hmac-sha2-256-etm@openssh.com
+        hmac-ripemd160-etm@openssh.com
+        umac-128-etm@openssh.com
+        hmac-sha2-512
+        hmac-sha2-256
+        hmac-ripemd160
+        hmac-sha1
+      ).join(',')
+      expect(sshd_config).to contain(/^MACs #{macs}$/)
+    end
+  end
+
   context 'installed by system_grub' do
     %w(
       grub
@@ -156,19 +192,6 @@ describe 'Ubuntu 14.04 OS image', os_image: true do
     %w(e2fs_stage1_5 stage1 stage2).each do |grub_stage|
       describe file("/boot/grub/#{grub_stage}") do
         it { should be_file }
-      end
-    end
-  end
-
-  context 'installed by system_kernel' do
-    %w(
-      linux-headers-3.13.0-45
-      linux-headers-3.13.0-45-generic
-      linux-image-3.13.0-45-generic
-      linux-image-extra-3.13.0-45-generic
-    ).each do |pkg|
-      describe package(pkg) do
-        it { should be_installed }
       end
     end
   end
@@ -186,26 +209,27 @@ describe 'Ubuntu 14.04 OS image', os_image: true do
     end
   end
 
-  context 'installed by bosh_sysctl' do
-    describe file('/etc/sysctl.d/60-bosh-sysctl.conf') do
-      it { should be_file }
-    end
-
-    describe file('/etc/sysctl.d/60-bosh-sysctl-neigh-fix.conf') do
-      it { should be_file }
-    end
-  end
-
   context 'symlinked by vim_tiny' do
     describe file('/usr/bin/vim') do
       it { should be_linked_to '/usr/bin/vim.tiny' }
     end
   end
 
-  context 'installed by rsyslog' do
-    describe file('/etc/rsyslog.d/enable-kernel-logging.conf') do
-      it { should be_file }
-      it { should contain('ModLoad imklog') }
+  context 'configured by cron_config' do
+    describe file '/etc/cron.daily/man-db' do
+      it { should_not be_file }
+    end
+
+    describe file '/etc/cron.weekly/man-db' do
+      it { should_not be_file }
+    end
+
+    describe file '/etc/apt/apt.conf.d/02periodic' do
+      it { should contain <<EOF }
+APT::Periodic {
+  Enable "0";
+}
+EOF
     end
   end
 end

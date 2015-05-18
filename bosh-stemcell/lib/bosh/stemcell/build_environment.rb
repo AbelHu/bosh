@@ -1,5 +1,6 @@
 require 'bosh/core/shell'
 require 'bosh/stemcell/builder_options'
+require 'bosh/stemcell/stemcell'
 require 'forwardable'
 
 module Bosh::Stemcell
@@ -13,6 +14,7 @@ module Bosh::Stemcell
       @environment = env
       @definition = definition
       @os_image_tarball_path = os_image_tarball_path
+      @version = version
       @stemcell_builder_options = BuilderOptions.new(
         env: env,
         definition: definition,
@@ -23,11 +25,16 @@ module Bosh::Stemcell
       @shell = Bosh::Core::Shell.new
     end
 
+    attr_reader :version
+
     def prepare_build
-      sanitize
-      prepare_build_path
+      if (ENV['resume_from'] == NIL)
+        sanitize
+        prepare_build_path
+      end
       copy_stemcell_builder_to_build_path
       prepare_work_root
+      prepare_stemcell_path
       persist_settings_for_bash
     end
 
@@ -55,8 +62,11 @@ module Bosh::Stemcell
       File.join(build_root, 'build')
     end
 
-    def stemcell_file
-      File.join(work_path, settings['stemcell_tgz'])
+    def stemcell_files
+      definition.disk_formats.map do |disk_format|
+        stemcell_filename = Stemcell.new(@definition, 'bosh-stemcell', @version, disk_format)
+        File.join(work_path, stemcell_filename.name)
+      end
     end
 
     def chroot_dir
@@ -69,6 +79,14 @@ module Bosh::Stemcell
 
     def work_path
       File.join(work_root, 'work')
+    end
+
+    def stemcell_tarball_path
+      work_path
+    end
+
+    def stemcell_disk_size
+      stemcell_builder_options.image_create_disk_size
     end
 
     def command_env
@@ -104,16 +122,16 @@ module Bosh::Stemcell
     end
 
     def operating_system_spec_name
-      spec_name = operating_system.name
-      if operating_system.version
-        spec_name = "#{spec_name}_#{operating_system.version}"
-      end
-      spec_name
+      "#{operating_system.name}_#{operating_system.version}"
     end
 
     def prepare_build_path
       FileUtils.rm_rf(build_path, verbose: true) if File.exist?(build_path)
       FileUtils.mkdir_p(build_path, verbose: true)
+    end
+
+    def prepare_stemcell_path
+      FileUtils.mkdir_p(File.join(work_path, 'stemcell'))
     end
 
     def copy_stemcell_builder_to_build_path

@@ -18,8 +18,6 @@ module Bosh::Stemcell
 
     def default
       {
-        'stemcell_name' => "bosh-#{@definition.stemcell_name}",
-        'stemcell_tgz' => archive_filename.to_s,
         'stemcell_image_name' => stemcell_image_name,
         'stemcell_version' => stemcell_version,
         'stemcell_hypervisor' => infrastructure.hypervisor,
@@ -34,6 +32,11 @@ module Bosh::Stemcell
       }.merge(bosh_micro_options).merge(environment_variables).merge(ovf_options)
     end
 
+    attr_reader(
+      :stemcell_version,
+      :image_create_disk_size,
+    )
+
     private
 
     def_delegators(
@@ -45,9 +48,7 @@ module Bosh::Stemcell
 
     attr_reader(
       :environment,
-      :stemcell_version,
       :definition,
-      :image_create_disk_size,
       :bosh_micro_release_tgz_path,
       :os_image_tgz_path,
     )
@@ -64,6 +65,8 @@ module Bosh::Stemcell
       {
         'UBUNTU_ISO' => environment['UBUNTU_ISO'],
         'UBUNTU_MIRROR' => environment['UBUNTU_MIRROR'],
+        'RHN_USERNAME' => environment['RHN_USERNAME'],
+        'RHN_PASSWORD' => environment['RHN_PASSWORD'],
       }
     end
 
@@ -74,10 +77,6 @@ module Bosh::Stemcell
         'bosh_micro_manifest_yml_path' => File.join(source_root, 'release', 'micro', "#{infrastructure.name}.yml"),
         'bosh_micro_release_tgz_path' => bosh_micro_release_tgz_path,
       }
-    end
-
-    def archive_filename
-      ArchiveFilename.new(stemcell_version, definition, 'bosh-stemcell')
     end
 
     def stemcell_image_name

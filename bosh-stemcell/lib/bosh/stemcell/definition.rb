@@ -19,7 +19,7 @@ module Bosh::Stemcell
         hypervisor_name,
         Bosh::Stemcell::OperatingSystem.for(operating_system_name, operating_system_version),
         Bosh::Stemcell::Agent.for(agent_name),
-        light
+        light,
       )
     end
 
@@ -31,7 +31,7 @@ module Bosh::Stemcell
       @light = light
     end
 
-    def stemcell_name
+    def stemcell_name(disk_format)
       stemcell_name_parts = [
         infrastructure.name,
         hypervisor_name,
@@ -39,7 +39,13 @@ module Bosh::Stemcell
       ]
       stemcell_name_parts << operating_system.version if operating_system.version
       stemcell_name_parts << "#{agent.name}_agent" unless agent.name == 'ruby'
+      stemcell_name_parts << disk_format unless disk_format == infrastructure.default_disk_format
+
       stemcell_name_parts.join('-')
+    end
+
+    def disk_formats
+      infrastructure.disk_formats
     end
 
     def ==(other)
@@ -50,7 +56,7 @@ module Bosh::Stemcell
     end
 
     def light?
-      @light
+      @light == true
     end
   end
 end

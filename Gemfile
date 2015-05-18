@@ -2,30 +2,25 @@
 
 source 'https://rubygems.org'
 
-%w(
-  agent_client
-  bosh_azure_cpi
-  blobstore_client
-  bosh_aws_cpi
-  bosh_common
-  bosh-core
-  bosh_cpi
-  bosh_cli
-  bosh_cli_plugin_aws
-  bosh_cli_plugin_micro
-  bosh_openstack_cpi
-  bosh-registry
-  bosh_vsphere_cpi
-  bosh_warden_cpi
-  bosh-director
-  bosh-director-core
-  bosh-monitor
-  bosh-release
-  bosh-template
-  simple_blobstore_server
-).each do |gem_name|
-  gem gem_name, path: gem_name
-end
+gem 'agent_client', path: 'agent_client'
+gem 'blobstore_client', path: 'blobstore_client'
+gem 'bosh_aws_cpi', path: 'bosh_aws_cpi'
+gem 'bosh_common', path: 'bosh_common'
+gem 'bosh-core', path: 'bosh-core'
+gem 'bosh_cpi', path: 'bosh_cpi'
+gem 'bosh_cli', path: 'bosh_cli'
+gem 'bosh_cli_plugin_aws', path: 'bosh_cli_plugin_aws'
+gem 'bosh_cli_plugin_micro', path: 'bosh_cli_plugin_micro'
+gem 'bosh_openstack_cpi', path: 'bosh_openstack_cpi'
+gem 'bosh-registry', path: 'bosh-registry'
+gem 'bosh_vsphere_cpi', path: 'bosh_vsphere_cpi'
+gem 'bosh-director', path: 'bosh-director'
+gem 'bosh-director-core', path: 'bosh-director-core'
+gem 'bosh-monitor', path: 'bosh-monitor'
+gem 'bosh-release', path: 'bosh-release'
+gem 'bosh-template', path: 'bosh-template'
+gem 'simple_blobstore_server', path: 'simple_blobstore_server'
+gem 'bosh_azure_cpi', path: 'bosh_azure_cpi'
 
 gem 'rake', '~>10.0'
 
@@ -44,11 +39,13 @@ group :bat do
 end
 
 group :development, :test do
-  gemspec path: 'bosh-dev'
-  gemspec path: 'bosh-stemcell'
+  gem 'bosh-dev', path: 'bosh-dev'
+  gem 'bosh-stemcell', path: 'bosh-stemcell'
+  gem 'serverspec'
 
-  gem 'rspec', '~> 3.0'
+  gem 'rspec', '~> 3.0.0'
   gem 'rspec-its'
+  gem 'rspec-instafail'
 
   gem 'rubocop', require: false
   gem 'parallel_tests'
@@ -56,12 +53,15 @@ group :development, :test do
   gem 'webmock'
   gem 'fakefs', git: 'https://github.com/pivotal-cf-experimental/fakefs.git', ref: 'ebde3d6c'
   gem 'simplecov', '~> 0.9.0'
+  gem 'sinatra'
+  gem 'sinatra-contrib'
   gem 'codeclimate-test-reporter', require: false
   gem 'vcr'
+  gem 'pry'
 
   # Explicitly do not require serverspec dependency
   # so that it could be monkey patched in a deterministic way
-  # in `bosh-stemcell/spec/support/serverspec.rb`
+  # in `bosh-stemcell/spec/support/serverspec_monkeypatch.rb`
   gem 'specinfra', require: nil
 
   # for director
@@ -74,6 +74,6 @@ group :development, :test do
   gem 'rugged'
 
   gem 'sqlite3'
-  gem 'timecop'
-  gem 'jenkins_api_client'
+  gem 'timecop', '~>0.7.1'
+  gem 'blue-shell'
 end

@@ -1,6 +1,9 @@
 require 'spec_helper'
 
 describe 'Ubuntu 14.04 stemcell', stemcell_image: true do
+
+  it_behaves_like 'All Stemcells'
+
   context 'installed by image_install_grub', exclude_on_warden: true do
     describe file('/boot/grub/grub.conf') do
       it { should be_file }
@@ -11,6 +14,7 @@ describe 'Ubuntu 14.04 stemcell', stemcell_image: true do
       its(:content) { should match %r{kernel /boot/vmlinuz-\S+-generic ro root=UUID=} }
       it { should contain ' selinux=0' }
       it { should contain ' cgroup_enable=memory swapaccount=1' }
+      it { should contain ' console=tty0 console=ttyS0,115200n8' }
       its(:content) { should match %r{initrd /boot/initrd.img-\S+-generic} }
     end
 
@@ -32,12 +36,6 @@ describe 'Ubuntu 14.04 stemcell', stemcell_image: true do
 
       it { should match_array(%w(/bin/su /usr/bin/sudo /usr/bin/sudoedit)) }
     end
-
-    describe 'disallow root login' do
-      subject { file('/etc/ssh/sshd_config') }
-
-      it { should contain /^PermitRootLogin no$/ }
-    end
   end
 
   context 'installed by system-aws-network', {
@@ -47,8 +45,8 @@ describe 'Ubuntu 14.04 stemcell', stemcell_image: true do
   } do
     describe file('/etc/network/interfaces') do
       it { should be_file }
-      it { should contain 'auto eth0' }
-      it { should contain 'iface eth0 inet dhcp' }
+      it { should contain 'auto lo' }
+      it { should contain 'iface lo inet loopback' }
     end
   end
 
@@ -99,6 +97,18 @@ HERE
     end
   end
 
+  context 'installed by bosh_aws_agent_settings', {
+    exclude_on_openstack: true,
+    exclude_on_vcloud: true,
+    exclude_on_vsphere: true,
+    exclude_on_warden: true,
+  } do
+    describe file('/var/vcap/bosh/agent.json') do
+      it { should be_valid_json_file }
+      it { should contain('"Type": "HTTP"') }
+    end
+  end
+
   context 'installed by bosh_openstack_agent_settings', {
     exclude_on_aws: true,
     exclude_on_vcloud: true,
@@ -109,7 +119,26 @@ HERE
     describe file('/var/vcap/bosh/agent.json') do
       it { should be_valid_json_file }
       it { should contain('"CreatePartitionIfNoEphemeralDisk": true') }
-      it { should contain('"UseConfigDrive": true') }
+      it { should contain('"Type": "ConfigDrive"') }
+      it { should contain('"Type": "HTTP"') }
+    end
+  end
+
+  context 'installed by bosh_vsphere_agent_settings', {
+    exclude_on_aws: true,
+    exclude_on_vcloud: true,
+    exclude_on_openstack: true,
+    exclude_on_warden: true,
+  } do
+    describe file('/var/vcap/bosh/agent.json') do
+      it { should be_valid_json_file }
+      it { should contain('"Type": "CDROM"') }
+    end
+  end
+
+  context 'default packages removed' do
+    describe package('postfix') do
+      it { should_not be_installed }
     end
   end
 end

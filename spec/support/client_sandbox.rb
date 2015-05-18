@@ -1,9 +1,13 @@
-require 'bosh/dev/sandbox/debug_logs'
+require 'bosh/dev/sandbox/workspace'
 
 class ClientSandbox
   class << self
     def base_dir
-      File.join(Bosh::Dev::Sandbox::DebugLogs.logs_dir, 'client-sandbox')
+      File.join(Bosh::Dev::Sandbox::Workspace.dir, 'client-sandbox')
+    end
+
+    def home_dir
+      File.join(base_dir, 'home')
     end
 
     def test_release_dir
@@ -16,6 +20,10 @@ class ClientSandbox
 
     def bosh_config
       File.join(base_dir, 'bosh_config.yml')
+    end
+
+    def blobstore_dir
+      File.join(base_dir, 'release_blobstore')
     end
   end
 end

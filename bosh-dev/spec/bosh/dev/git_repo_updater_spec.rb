@@ -3,83 +3,61 @@ require 'bosh/dev/git_repo_updater'
 
 module Bosh::Dev
   describe GitRepoUpdater do
-    include FakeFS::SpecHelpers
-
     subject(:git_repo_updater) { described_class.new(logger) }
 
-    let(:dir) { '/some/dir' }
-
+    let(:remote_dir) { Dir.mktmpdir('git-repo-updater-remote') }
+    let(:local_dir) { Dir.mktmpdir('git-repo-updater-local') }
     before do
-      allow(Open3).to receive(:capture3).
-          and_return([ '', nil, instance_double('Process::Status', success?: true) ])
+      Dir.chdir(remote_dir) do
+        `git init`
+        config_git_user
+        File.write('README.md', 'hiya!')
+        `git add .`
+        `git commit -m 'Initial commit'`
+      end
 
-      FileUtils.mkdir_p(dir)
+      FileUtils.rm_rf(local_dir)
+      `git clone #{remote_dir} #{local_dir}`
+
+      Dir.chdir(remote_dir) { `git checkout -b another-branch` }
     end
 
-    it 'changes to the directory' do
-      expect(Dir).to receive(:chdir).with(dir)
-
-      subject.update_directory(dir)
+    after do
+      FileUtils.rm_rf(remote_dir)
+      FileUtils.rm_rf(local_dir)
     end
 
-    it 'adds untracked files' do
-      expect(Open3).to receive(:capture3).with('git add .').
-          and_return([ '', nil, instance_double('Process::Status', success?: true) ])
-
-      subject.update_directory(dir)
-    end
-
-    it 'adds modified files' do
-      expect(Open3).to receive(:capture3).with("git commit -a -m 'Autodeployer receipt file update'").
-          and_return([ '', nil, instance_double('Process::Status', success?: true) ])
-
-      subject.update_directory(dir)
-    end
-
-    it 'git pushes' do
-      expect(Open3).to receive(:capture3).with('git push').
-          and_return([ '', nil, instance_double('Process::Status', success?: true) ])
-
-      subject.update_directory(dir)
-    end
-
-    context 'when there are no modified files to commit' do
+    context 'when there are changes' do
       before do
-        allow(Open3).to receive(:capture3).with('git status').
-          and_return([ no_modified_files_message, nil, instance_double('Process::Status', success?: true) ])
-      end
-
-      context 'when the message has parantheses' do
-        let(:no_modified_files_message) { 'nothing to commit (working directory clean)' }
-
-        it 'does not commit' do
-          expect(Open3).to_not receive(:capture3).with("git commit -a -m 'Autodeployer receipt file update'")
-
-          subject.update_directory(dir)
-        end
-
-        it 'does not push' do
-          expect(Open3).to_not receive(:capture3).with('git push')
-
-          subject.update_directory(dir)
+        Dir.chdir(local_dir) do
+          config_git_user
+          File.write('README.md', 'new contents')
         end
       end
 
-      context 'when the message has a comma' do
-        let(:no_modified_files_message) { 'nothing to commit, working directory clean' }
-
-        it 'does not commit' do
-          expect(Open3).to_not receive(:capture3).with("git commit -a -m 'Autodeployer receipt file update'")
-
-          subject.update_directory(dir)
-        end
-
-        it 'does not push' do
-          expect(Open3).to_not receive(:capture3).with('git push')
-
-          subject.update_directory(dir)
-        end
+      it 'commits and pushes the changes' do
+        original_commit = get_head_commit(remote_dir)
+        git_repo_updater.update_directory(local_dir, 'my commit message')
+        expect(get_head_commit(remote_dir)).not_to eq(original_commit)
+        expect(get_head_commit_message(remote_dir)).to eq('my commit message')
       end
+    end
+
+    context 'when there are no changes' do
+      it 'does not commit anything' do
+        original_commit = get_head_commit(remote_dir)
+        git_repo_updater.update_directory(local_dir, 'my commit message')
+        expect(get_head_commit(remote_dir)).to eq(original_commit)
+        expect(get_head_commit_message(remote_dir)).to eq('Initial commit')
+      end
+    end
+
+    def get_head_commit(repo)
+      Dir.chdir(repo) { `git rev-parse master` }.chomp
+    end
+
+    def get_head_commit_message(repo)
+      Dir.chdir(repo) { `git log --format=%B -1 master` }.chomp.chomp
     end
   end
 end

@@ -28,17 +28,16 @@ Gem::Specification.new do |s|
   s.add_dependency 'bosh_openstack_cpi', "~>#{version}"
   s.add_dependency 'bosh_aws_cpi',       "~>#{version}"
   s.add_dependency 'bosh_vsphere_cpi',   "~>#{version}"
-  s.add_dependency 'bosh_warden_cpi',    "~>#{version}"
   s.add_dependency 'bosh_azure_cpi',    "~>#{version}"
-  s.add_dependency 'bosh_vcloud_cpi',    '~>0.7.2'
+  s.add_dependency 'bosh_vcloud_cpi',    '~>0.7.3'
   s.add_dependency 'eventmachine',       '~>1.0.0'
-  s.add_dependency 'fog',              '~>1.23.0'
+  s.add_dependency 'fog',              '~>1.27.0'
   s.add_dependency 'httpclient',       '=2.4.0'
   s.add_dependency 'logging',          '~>1.8.2'
   s.add_dependency 'nats',             '=0.5.0.beta.12'
   s.add_dependency 'netaddr',          '~>1.5.0'
   s.add_dependency 'rack-test',        '~>0.6.2' # needed for console
-  s.add_dependency 'rake'
+  s.add_dependency 'rake',             '~> 10.0'
   s.add_dependency 'redis',            '~>3.0.2'
   s.add_dependency 'resque',           '~>1.25.0'
   s.add_dependency 'resque-backtrace', '~>0.0.1'
@@ -50,8 +49,16 @@ Gem::Specification.new do |s|
   s.add_dependency 'yajl-ruby',        '~>1.2.0'
   s.add_dependency 'membrane',         '~>1.1.0'
   s.add_dependency 'semi_semantic',    '~>1.1.0'
+  s.add_dependency 'cf-uaa-lib',       '~>3.2.1'
 
   s.add_development_dependency 'timecop'
+  s.add_development_dependency 'rspec'
+  s.add_development_dependency 'rspec-its'
+  s.add_development_dependency 'minitar'
+  s.add_development_dependency 'machinist'
+  s.add_development_dependency 'sqlite3'
+  s.add_development_dependency 'fakefs'
+  s.add_development_dependency 'pg'
 
   s.bindir      = 'bin'
   s.executables << 'bosh-director'

@@ -27,6 +27,7 @@ describe 'cli: compiled_packages', type: :integration do
       target_and_login
       bosh_runner.run("upload release #{release_tarball_path}")
       upload_stemcell
+      upload_cloud_config
 
       # deploy must compile the packages
       output = deploy_simple_manifest
@@ -41,12 +42,13 @@ describe 'cli: compiled_packages', type: :integration do
 
       # reset the sandbox/director to delete previously compiled packages
       prepare_sandbox
-      reset_sandbox('resetting to clear compile packages')
+      reset_sandbox
 
       # re-upload the provided release tarball
       target_and_login
       bosh_runner.run("upload release #{release_tarball_path}")
       upload_stemcell
+      upload_cloud_config
 
       bosh_runner.run("import compiled_packages #{compiled_packages_tarball_path}")
 
@@ -59,7 +61,10 @@ describe 'cli: compiled_packages', type: :integration do
   it 'allows the user to import compiled packages after a previously successful import' do
     target_and_login
 
-    deployment_manifest = yaml_file('simple_manifest', Bosh::Spec::Deployments.simple_manifest)
+    cloud_config_manifest = yaml_file('cloud_manifest', Bosh::Spec::Deployments.simple_cloud_config)
+    bosh_runner.run("update cloud-config #{cloud_config_manifest.path}")
+
+    deployment_manifest = yaml_file('deployment_manifest', Bosh::Spec::Deployments.simple_manifest)
     bosh_runner.run("deployment #{deployment_manifest.path}")
     bosh_runner.run("upload stemcell #{spec_asset('valid_stemcell.tgz')}")
     bosh_runner.run("upload release #{create_release}")

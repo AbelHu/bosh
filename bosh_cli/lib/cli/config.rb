@@ -25,7 +25,7 @@ module Bosh::Cli
     end
 
     @commands = {}
-    @colorize = true
+    @colorize = nil
     @output = nil
     @interactive = false
 
@@ -70,12 +70,9 @@ module Bosh::Cli
       end
     end
 
-    def set_credentials(target, username, password)
+    def set_credentials(target, credentials)
       @config_file["auth"] ||= {}
-      @config_file["auth"][target] = {
-        "username" => username,
-        "password" => password
-      }
+      @config_file["auth"][target] = credentials
     end
 
     def set_alias(category, alias_name, value)
@@ -118,6 +115,12 @@ module Bosh::Cli
       credentials_for(target)["password"]
     end
 
+    # @param [String] target Target director url
+    # @return [String] Token associated with target
+    def token(target)
+      credentials_for(target)["token"]
+    end
+
     # Deployment used to be a string that was only stored for your
     # current target. As soon as you switched targets, the deployment
     # was erased. If the user has the old config we convert it to the
@@ -158,15 +161,44 @@ module Bosh::Cli
       @config_file["deployment"][target] = deployment_file_path
     end
 
-    [:target, :target_name, :target_version, :release,
-     :target_uuid].each do |attr|
-      define_method attr do
-        read(attr, false)
-      end
+    def target
+      read(:target, false)
+    end
 
-      define_method "#{attr}=" do |value|
-        write_global(attr, value)
-      end
+    def target=(value)
+      write_global(:target, value)
+    end
+
+    def target_name
+      read(:target_name, false)
+    end
+
+    def target_name=(value)
+      write_global(:target_name, value)
+    end
+
+    def target_version
+      read(:target_version, false)
+    end
+
+    def target_version=(value)
+      write_global(:target_version, value)
+    end
+
+    def release
+      read(:release, false)
+    end
+
+    def release=(value)
+      write_global(:release, value)
+    end
+
+    def target_uuid
+      read(:target_uuid, false)
+    end
+
+    def target_uuid=(value)
+      write_global(:target_uuid, value)
     end
 
     # Read the max parallel downloads configuration.

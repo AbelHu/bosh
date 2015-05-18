@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+set -x
 
 if [ $# -lt 1 ]
 then
@@ -24,6 +25,7 @@ export HOME=/root
 if [ -z "${agent_gem_src_url:-}" ]; then
 (
   cd ${bosh_src_dir}/bosh-release/gems
+  gem install bosh_common --no-rdoc --no-ri -l -w
   gem install bosh-release --no-rdoc --no-ri -l -w
 )
 else
@@ -47,8 +49,22 @@ cat > ${bosh_app_dir}/bosh/dummy-cpi-agent-env.json << EOF
 }
 EOF
 
+cat > ${bosh_app_dir}/bosh/agent.json << EOF
+{
+  "Infrastructure": {
+    "Settings": {
+      "Sources": [{
+        "Type":         "File",
+        "SettingsPath": "${bosh_app_dir}/bosh/dummy-cpi-agent-env.json"
+      }],
+      "UseRegistry": true
+    }
+  }
+}
+EOF
+
 # Start agent
-/var/vcap/bosh/bin/bosh-agent -I dummy -P dummy -M dummy &
+/var/vcap/bosh/bin/bosh-agent -P dummy -M dummy -C ${bosh_app_dir}/bosh/agent.json &
 agent_pid=$!
 
 echo "Starting BOSH Agent for compiling micro bosh package, agent pid is $agent_pid"
@@ -92,4 +108,8 @@ done
 cd /var/tmp
 rm -fr ${bosh_app_dir}/bosh/src
 rm ${bosh_app_dir}/bosh/dummy-cpi-agent-env.json
+rm ${bosh_app_dir}/bosh/agent.json
 rm ${bosh_app_dir}/bosh/settings.json
+
+# Clear all compilation artifacts, agent is responsible for setting up data directory
+rm -vrf ${bosh_app_dir}/data

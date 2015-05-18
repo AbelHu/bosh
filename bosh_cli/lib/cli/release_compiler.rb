@@ -6,23 +6,24 @@ module Bosh::Cli
 
     attr_writer :tarball_path
 
-    def self.compile(manifest_file, blobstore)
-      new(manifest_file, blobstore).compile
+    def self.compile(manifest_file, artifacts_dir, blobstore)
+      new(manifest_file, artifacts_dir, blobstore).compile
     end
 
     # @param [String] manifest_file Release manifest path
     # @param [Bosh::Blobstore::Client] blobstore Blobstore client
     # @param [Array] package_matches List of package checksums that director
     #   can match
-    # @param [String] release_dir Release directory
-    def initialize(manifest_file, blobstore,
-                   package_matches = [], release_dir = nil)
+    # @param [String] release_source Release directory
+    def initialize(manifest_file, artifacts_dir, blobstore,
+                   package_matches = [], release_source = nil)
 
       @blobstore = blobstore
-      @release_dir = release_dir || Dir.pwd
-      @manifest_file = File.expand_path(manifest_file, @release_dir)
+      @release_source = release_source || Dir.pwd
+      @manifest_path = File.expand_path(manifest_file, @release_source)
       @tarball_path = nil
 
+      @artifacts_dir = artifacts_dir
       @build_dir = Dir.mktmpdir
       @jobs_dir = File.join(@build_dir, "jobs")
       @packages_dir = File.join(@build_dir, "packages")
@@ -36,8 +37,14 @@ module Bosh::Cli
 
       @name = @manifest["name"]
       @version = @manifest["version"]
-      @packages = @manifest["packages"].map { |pkg| OpenStruct.new(pkg) }
-      @jobs = @manifest["jobs"].map { |job| OpenStruct.new(job) }
+      @packages = @manifest.fetch("packages", []).map { |pkg| OpenStruct.new(pkg) }
+      @jobs = @manifest.fetch("jobs", []).map { |job| OpenStruct.new(job) }
+      @license = @manifest["license"] ? OpenStruct.new(@manifest["license"]) : nil
+    end
+
+    def artifact_from(resource, type)
+      return nil unless resource
+      BuildArtifact.new(resource.name, resource.fingerprint, send(:"find_#{type}", resource), resource.sha1, [], nil, nil)
     end
 
     def compile
@@ -45,43 +52,16 @@ module Bosh::Cli
         quit("You already have this version in `#{tarball_path.make_green}'")
       end
 
-      FileUtils.cp(@manifest_file, File.join(@build_dir, "release.MF"), :preserve => true)
+      packages = @packages
+        .reject { |package| remote_package_exists?(package) }
+        .map { |package| artifact_from(package, :package) }
+      jobs = @jobs
+        .reject { |job| remote_job_exists?(job) }
+        .map { |job| artifact_from(job, :job) }
+      license = artifact_from(@license, :license)
 
-      header("Copying packages")
-      @packages.each do |package|
-        say("#{package.name} (#{package.version})".ljust(30), " ")
-        if remote_package_exists?(package)
-          say("SKIP".make_yellow)
-          next
-        end
-        package_file_path = find_package(package)
-        FileUtils.cp(package_file_path,
-                     File.join(@packages_dir, "#{package.name}.tgz"),
-                     :preserve => true)
-      end
-
-      header("Copying jobs")
-      @jobs.each do |job|
-        say("#{job.name} (#{job.version})".ljust(30), " ")
-        if remote_job_exists?(job)
-          say("SKIP".make_yellow)
-          next
-        end
-        job_file_path = find_job(job)
-        FileUtils.cp(job_file_path,
-                     File.join(@jobs_dir, "#{job.name}.tgz"),
-                     :preserve => true)
-      end
-
-      header("Building tarball")
-      Dir.chdir(@build_dir) do
-        tar_out = `tar -czf #{tarball_path} . 2>&1`
-        unless $?.exitstatus == 0
-          raise InvalidRelease, "Cannot create release tarball: #{tar_out}"
-        end
-        say("Generated #{tarball_path.make_green}")
-        say("Release size: #{pretty_size(tarball_path).make_green}")
-      end
+      archiver = ReleaseArchiver.new(tarball_path, @manifest_path, packages, jobs, license)
+      archiver.build
     end
 
     def exists?
@@ -89,26 +69,34 @@ module Bosh::Cli
     end
 
     def tarball_path
-      @tarball_path || File.join(File.dirname(@manifest_file),
+      @tarball_path || File.join(File.dirname(@manifest_path),
                                  "#{@name}-#{@version}.tgz")
     end
 
     def find_package(package)
       name = package.name
-      final_package_dir = File.join(@release_dir, '.final_builds', 'packages', name)
+      final_package_dir = File.join(@release_source, '.final_builds', 'packages', name)
       final_index = Versions::VersionsIndex.new(final_package_dir)
-      dev_package_dir = File.join(@release_dir, '.dev_builds', 'packages', name)
+      dev_package_dir = File.join(@release_source, '.dev_builds', 'packages', name)
       dev_index = Versions::VersionsIndex.new(dev_package_dir)
       find_in_indices(final_index, dev_index, package, 'package')
     end
 
     def find_job(job)
       name = job.name
-      final_jobs_dir = File.join(@release_dir, '.final_builds', 'jobs', name)
+      final_jobs_dir = File.join(@release_source, '.final_builds', 'jobs', name)
       final_index = Versions::VersionsIndex.new(final_jobs_dir)
-      dev_jobs_dir = File.join(@release_dir, '.dev_builds', 'jobs', name)
+      dev_jobs_dir = File.join(@release_source, '.dev_builds', 'jobs', name)
       dev_index = Versions::VersionsIndex.new(dev_jobs_dir)
       find_in_indices(final_index, dev_index, job, 'job')
+    end
+
+    def find_license(license)
+      final_dir = File.join(@release_source, '.final_builds', 'license')
+      final_index = Versions::VersionsIndex.new(final_dir)
+      dev_dir = File.join(@release_source, '.dev_builds', 'license')
+      dev_index = Versions::VersionsIndex.new(dev_dir)
+      find_in_indices(final_index, dev_index, license, 'license')
     end
 
     def find_version_by_sha1(index, sha1)
@@ -131,14 +119,13 @@ module Bosh::Cli
         err("Cannot find #{build_type} with checksum `#{build.sha1}'")
       end
 
-      version = found_build["version"]
       sha1 = found_build["sha1"]
       blobstore_id = found_build["blobstore_id"]
 
-      storage = Versions::LocalVersionStorage.new(index.storage_dir)
+      storage = Versions::LocalArtifactStorage.new(@artifacts_dir)
 
       resolver = Versions::VersionFileResolver.new(storage, @blobstore)
-      resolver.find_file(blobstore_id, sha1, version, "#{build_type} #{desc}")
+      resolver.find_file(blobstore_id, sha1, "#{build_type} #{desc}")
     rescue Bosh::Blobstore::BlobstoreError => e
       raise BlobstoreError, "Blobstore error: #{e}"
     end
@@ -148,9 +135,9 @@ module Bosh::Cli
     # @return [Boolean]
     def remote_package_exists?(local_package)
       # If checksum is known to director we can always match it
-      @package_matches.include?(local_package.sha1) ||
-        (local_package.fingerprint &&
-         @package_matches.include?(local_package.fingerprint))
+      @package_matches.include?(local_package.sha1) ||                     # !!! Needs test coverage
+        (local_package.fingerprint &&                                      # !!! Needs test coverage
+         @package_matches.include?(local_package.fingerprint))             # !!! Needs test coverage
     end
 
     # Checks if local job is already known remotely

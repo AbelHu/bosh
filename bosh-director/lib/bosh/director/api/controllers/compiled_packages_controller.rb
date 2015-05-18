@@ -11,9 +11,9 @@ require 'bosh/director/jobs/import_compiled_packages'
 module Bosh::Director
   module Api::Controllers
     class CompiledPackagesController < BaseController
-      def initialize(*args)
-        super
-        @compiled_package_group_manager = Api::CompiledPackageGroupManager.new
+      def initialize(config, compiled_package_group_manager)
+        super(config)
+        @compiled_package_group_manager = compiled_package_group_manager
       end
 
       post '/export', consumes: :json do

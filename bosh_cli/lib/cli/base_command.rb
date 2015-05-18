@@ -42,13 +42,13 @@ module Bosh::Cli
 
       def director
         @director ||= Bosh::Cli::Client::Director.new(
-            target, username, password, @options.select { |k, _| k == :no_track })
+            target, credentials, @options.select { |k, _| k == :no_track })
       end
 
       def release
         return @release if @release
         check_if_release_dir
-        @release = Bosh::Cli::Release.new(@work_dir, options[:final])
+        @release = Bosh::Cli::Release.new(work_dir, options[:final])
       end
 
       def progress_renderer
@@ -64,7 +64,7 @@ module Bosh::Cli
       end
 
       def logged_in?
-        !!(username && password)
+        !!(credentials)
       end
 
       def non_interactive?
@@ -101,6 +101,27 @@ module Bosh::Cli
         options[:deployment] || config.deployment
       end
 
+      def credentials
+        auth_token = config.token(target)
+        return Bosh::Cli::Client::UaaCredentials.new(auth_token) if auth_token
+
+        if username && password
+          return Bosh::Cli::Client::BasicCredentials.new(username, password)
+        end
+
+        nil
+      end
+
+      def target_name
+        options[:target] || config.target_name || target_url
+      end
+
+      def cache_dir
+        File.join(Dir.home, '.bosh', 'cache')
+      end
+
+      protected
+
       # @return [String] Director username
       def username
         options[:username] || ENV['BOSH_USER'] || config.username(target)
@@ -110,12 +131,6 @@ module Bosh::Cli
       def password
         options[:password] || ENV['BOSH_PASSWORD'] || config.password(target)
       end
-
-      def target_name
-        options[:target] || config.target_name || target_url
-      end
-
-      protected
 
       # Prints director task completion report. Note that event log usually
       # contains pretty detailed error report and other UI niceties, so most
@@ -135,7 +150,7 @@ module Bosh::Cli
           when :done
             report = success_msg
           else
-            report = nil
+            report = "Task exited with status #{status}"
         end
 
         unless [:running, :done].include?(status)

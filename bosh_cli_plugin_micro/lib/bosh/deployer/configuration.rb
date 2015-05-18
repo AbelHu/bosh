@@ -24,7 +24,11 @@ module Bosh::Deployer
       @env = config['env']
       @deployment_network = config['deployment_network']
 
-      @logger = MonoLogger.new(config['logging']['file'] || STDOUT)
+      log_io = config['logging']['file'] || STDOUT
+      if log_io.is_a?(String)
+        log_io = File.open(log_io, (File::WRONLY | File::APPEND | File::CREAT))
+      end
+      @logger = MonoLogger.new(log_io)
       @logger.level = MonoLogger.const_get(config['logging']['level'].upcase)
       @logger.formatter = ThreadFormatter.new
 
@@ -56,7 +60,6 @@ module Bosh::Deployer
       @cloud_options['properties']['agent']['mbus'] ||=
         'https://vcap:b00tstrap@0.0.0.0:6868'
 
-      @disk_model = nil
       @cloud = nil
       @networks = nil
       @uuid = SecureRandom.uuid

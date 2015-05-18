@@ -22,6 +22,7 @@ Gem::Specification.new do |s|
 
   s.add_dependency 'bosh_common', "~>#{version}"
   s.add_dependency 'bosh-template', "~>#{version}"
+  s.add_dependency 'cf-uaa-lib',  '~>3.2.1'
   s.add_dependency 'json_pure',   '~>1.7'
   s.add_dependency 'highline',    '~>1.6.2'
   s.add_dependency 'progressbar', '~>0.9.0'
@@ -33,4 +34,12 @@ Gem::Specification.new do |s|
   s.add_dependency 'net-scp', '~>1.1.0'
   s.add_dependency 'netaddr', '~>1.5.0'
   s.add_dependency 'minitar', '~>0.5.4'
+
+  s.add_development_dependency 'rspec', '~> 3.0'
+  s.add_development_dependency 'rspec-its'
+  s.add_development_dependency 'rspec-instafail'
+  s.add_development_dependency 'webmock'
+  s.add_development_dependency 'timecop', '~>0.7.1'
+  s.add_development_dependency 'fakefs'
+  s.add_development_dependency 'vcr'
 end

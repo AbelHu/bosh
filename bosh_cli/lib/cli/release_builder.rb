@@ -2,32 +2,41 @@ module Bosh::Cli
   class ReleaseBuilder
     include Bosh::Cli::DependencyHelper
 
-    attr_reader :release, :packages, :jobs, :name, :version, :build_dir, :commit_hash, :uncommitted_changes
+    attr_reader(
+      :release,
+      :license,
+      :packages,
+      :jobs,
+      :name,
+      :version,
+      :build_dir,
+      :commit_hash,
+      :uncommitted_changes
+    )
 
     # @param [Bosh::Cli::Release] release Current release
-    # @param [Array<Bosh::Cli::PackageBuilder>] packages Built packages
-    # @param [Array<Bosh::Cli::JobBuilder>] jobs Built jobs
+    # @param [Array<Bosh::Cli::BuildArtifact>] package_artifacts Built packages
+    # @param [Array<Bosh::Cli::BuildArtifact>] job_artifacts Built jobs
     # @param [Hash] options Release build options
-    def initialize(release, packages, jobs, name, options = { })
+    def initialize(release, package_artifacts, job_artifacts, license_artifact, name, options = { })
       @release = release
       @final = options.has_key?(:final) ? !!options[:final] : false
       @commit_hash = options.fetch(:commit_hash, '00000000')
       @uncommitted_changes = options.fetch(:uncommitted_changes, true)
-      @packages = packages
-      @jobs = jobs
+      @packages = package_artifacts # todo
+      @jobs = job_artifacts # todo
+      @license = license_artifact
       @name = name
       raise 'Release name is blank' if name.blank?
 
       @version = options.fetch(:version, nil)
 
-      raise ReleaseVersionError.new('Version numbers cannot be specified for dev releases') if (@version && !@final)
-
       @final_index = Versions::VersionsIndex.new(final_releases_dir)
       @dev_index = Versions::VersionsIndex.new(dev_releases_dir)
       @index = @final ? @final_index : @dev_index
-      @release_storage = Versions::LocalVersionStorage.new(@index.storage_dir, @name)
+      @release_storage = Versions::LocalArtifactStorage.new(@index.storage_dir)
 
-      if @version && @release_storage.has_file?(@version)
+      if @version && @release_storage.has_file?(release_filename)
         raise ReleaseVersionError.new('Release version already exists')
       end
 
@@ -49,19 +58,22 @@ module Bosh::Cli
       @final
     end
 
-    # @return [Array] List of jobs affected by this release compared
-    #   to the previous one.
-    def affected_jobs
-      result = Set.new(@jobs.select { |job| job.new_version? })
-      return result if @packages.empty?
+    def release_filename
+      "#{@name}-#{@version}.tgz"
+    end
 
-      new_package_names = @packages.inject([]) do |list, package|
-        list << package.name if package.new_version?
-        list
-      end
+    # @return [Array<Bosh::Cli::BuildArtifact>] List of job artifacts
+    #   affected by this release compared to the previous one.
+    def affected_jobs
+      result = Set.new(@jobs.select { |job_artifact| job_artifact.new_version? })
+      return result.to_a if @packages.empty?
+
+      new_package_names = @packages.map do |package_artifact|
+        package_artifact.name if package_artifact.new_version?
+      end.compact
 
       @jobs.each do |job|
-        result << job if (new_package_names & job.packages).size > 0
+        result << job if (new_package_names & job.dependencies).size > 0
       end
 
       result.to_a
@@ -73,74 +85,56 @@ module Bosh::Cli
       options = { :generate_tarball => true }.merge(options)
 
       header("Generating manifest...")
-      generate_manifest
+      manifest_path = generate_manifest
       if options[:generate_tarball]
-        header("Generating tarball...")
-        generate_tarball
+        generate_tarball(manifest_path)
       end
       @build_complete = true
-    end
-
-    # Copies packages into release
-    def copy_packages
-      packages.each do |package|
-        say("%-40s %s" % [package.name.make_green,
-                           pretty_size(package.tarball_path)])
-        FileUtils.cp(package.tarball_path,
-                     File.join(build_dir, "packages", "#{package.name}.tgz"),
-                     :preserve => true)
-      end
-      @packages_copied = true
-    end
-
-    # Copies jobs into release
-    def copy_jobs
-      jobs.each do |job|
-        say("%-40s %s" % [job.name.make_green, pretty_size(job.tarball_path)])
-        FileUtils.cp(job.tarball_path,
-                     File.join(build_dir, "jobs", "#{job.name}.tgz"),
-                     :preserve => true)
-      end
-      @jobs_copied = true
     end
 
     # Generates release manifest
     def generate_manifest
       manifest = {}
-      manifest["packages"] = []
-
-      manifest["packages"] = packages.map do |package|
+      manifest['packages'] = packages.map do |build_artifact|
         {
-          "name" => package.name,
-          "version" => package.version,
-          "sha1" => package.checksum,
-          "fingerprint" => package.fingerprint,
-          "dependencies" => package.dependencies
+          'name' => build_artifact.name,
+          'version' => build_artifact.version,
+          'fingerprint' => build_artifact.fingerprint,
+          'sha1' => build_artifact.sha1,
+          'dependencies' => build_artifact.dependencies,
         }
       end
 
-      manifest["jobs"] = jobs.map do |job|
+      manifest['jobs'] = jobs.map do |build_artifact|
         {
-          "name" => job.name,
-          "version" => job.version,
-          "fingerprint" => job.fingerprint,
-          "sha1" => job.checksum,
+          'name' => build_artifact.name,
+          'version' => build_artifact.version,
+          'fingerprint' => build_artifact.fingerprint,
+          'sha1' => build_artifact.sha1,
         }
       end
 
-      manifest["commit_hash"] = commit_hash
-      manifest["uncommitted_changes"] = uncommitted_changes
+      unless @license.nil?
+        manifest['license'] = {
+          'version' => @license.version,
+          'fingerprint' => @license.fingerprint,
+          'sha1' => @license.sha1,
+        }
+      end
+
+      manifest['commit_hash'] = commit_hash
+      manifest['uncommitted_changes'] = uncommitted_changes
 
       unless @name.bosh_valid_id?
-        raise InvalidRelease, "Release name `#{@name}' is not a valid BOSH identifier"
+        raise InvalidRelease, "Release name '#{@name}' is not a valid BOSH identifier"
       end
-      manifest["name"] = @name
+      manifest['name'] = @name
 
       # New release versions are allowed to have the same fingerprint as old versions.
       # For reverse compatibility, random uuids are stored instead.
-      @index.add_version(SecureRandom.uuid, { "version" => version })
+      @index.add_version(SecureRandom.uuid, { 'version' => version })
 
-      manifest["version"] = version
+      manifest['version'] = version
       manifest_yaml = Psych.dump(manifest)
 
       say("Writing manifest...")
@@ -153,32 +147,15 @@ module Bosh::Cli
       end
 
       @manifest_generated = true
+      manifest_path
     end
 
-    def generate_tarball
-      generate_manifest unless @manifest_generated
-      return if @release_storage.has_file?(@version)
+    def generate_tarball(manifest_path = nil)
+      manifest_path ||= generate_manifest
+      return if @release_storage.has_file?(release_filename)
 
-      unless @jobs_copied
-        header("Copying jobs...")
-        copy_jobs
-        nl
-      end
-      unless @packages_copied
-        header("Copying packages...")
-        copy_packages
-        nl
-      end
-
-      FileUtils.mkdir_p(File.dirname(tarball_path))
-
-      in_build_dir do
-        `tar -czf #{tarball_path} . 2>&1`
-        unless $?.exitstatus == 0
-          raise InvalidRelease, "Cannot create release tarball"
-        end
-        say("Generated #{tarball_path}")
-      end
+      archiver = ReleaseArchiver.new(tarball_path, manifest_path, packages, jobs, license)
+      archiver.build
     end
 
     def releases_dir
@@ -202,6 +179,15 @@ module Bosh::Cli
     end
 
     private
+
+    # Copies packages into release
+    def copy_packages
+      header("Copying packages...")
+      packages.each do |package_artifact|
+        copy_artifact(package_artifact, 'packages')
+      end
+      nl
+    end
 
     def assign_version
       latest_final_version = Versions::ReleaseVersionsIndex.new(@final_index).latest_version

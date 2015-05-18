@@ -115,61 +115,6 @@ module VSphereCloud
           end.to raise_error(Membrane::SchemaValidationError)
         end
       end
-
-      context 'when drs_rules are specified' do
-        before do
-          datacenters.first['clusters'] = [
-            cluster_name => {
-              'resource_pool' => resource_pool,
-              'drs_rules' => [
-                drs_rule
-              ]
-            }
-          ]
-        end
-
-        context 'drs rule type is not separate_vms' do
-          let(:drs_rule) do
-            {
-              'name' => 'drs_rule_1',
-              'type' => 'bad_type'
-            }
-          end
-
-          it 'raises' do
-            expect do
-              config.validate
-            end.to raise_error(Membrane::SchemaValidationError)
-          end
-        end
-
-        context 'drs rule does not have a name' do
-          let(:drs_rule) do
-            {
-              'type' => 'separate_vms'
-            }
-          end
-
-          it 'raises' do
-            expect do
-              config.validate
-            end.to raise_error(Membrane::SchemaValidationError)
-          end
-        end
-
-        context 'drs rule has name and type is separate_vms' do
-          let(:drs_rule) do
-            {
-              'name' => 'drs_rule_1',
-              'type' => 'separate_vms'
-            }
-          end
-
-          it 'succeeds' do
-            expect { config.validate }.to_not raise_error
-          end
-        end
-      end
     end
 
     describe '#logger' do
@@ -275,22 +220,6 @@ module VSphereCloud
       end
     end
 
-    describe '#copy disks' do
-      context 'when set in config' do
-        before { config_hash.merge!({ 'copy_disks' => true }) }
-
-        it 'returns true' do
-          expect(config.copy_disks).to be(true)
-        end
-      end
-
-      context 'when not set in config' do
-        it 'false' do
-          expect(config.copy_disks).to be(false)
-        end
-      end
-    end
-
     describe '#agent' do
       it 'returns configuration values from config' do
         expect(config.agent).to eq(agent_config)
@@ -348,30 +277,6 @@ module VSphereCloud
     describe '#datacenter_persistent_datastore_pattern' do
       it 'returns the datacenter persistent datastore pattern ' do
         expect(config.datacenter_persistent_datastore_pattern).to eq(Regexp.new(persistent_datastore_pattern))
-      end
-    end
-
-    describe '#datacenter_allow_mixed' do
-      context 'when allow_mixed is not set' do
-        it 'returns false' do
-          expect(config.datacenter_allow_mixed_datastores).to be(false)
-        end
-      end
-
-      context 'when allow_mixed is falsey' do
-        before { datacenters.first['allow_mixed_datastores'] = false }
-
-        it 'returns false' do
-          expect(config.datacenter_allow_mixed_datastores).to be(false)
-        end
-      end
-
-      context 'when allow_mixed is truthy' do
-        before { datacenters.first['allow_mixed_datastores'] = true }
-
-        it 'returns true' do
-          expect(config.datacenter_allow_mixed_datastores).to be(true)
-        end
       end
     end
 

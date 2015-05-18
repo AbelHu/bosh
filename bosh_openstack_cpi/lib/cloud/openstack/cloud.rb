@@ -16,6 +16,7 @@ module Bosh::OpenStackCloud
     attr_reader :registry
     attr_reader :glance
     attr_reader :volume
+    attr_reader :state_timeout
     attr_accessor :logger
 
     ##
@@ -68,6 +69,10 @@ module Bosh::OpenStackCloud
         @logger.error(e)
         cloud_error('Unable to connect to the OpenStack Compute API. Check task debug log for details.')
       end
+
+      @az_provider = Bosh::OpenStackCloud::AvailabilityZoneProvider.new(
+        @openstack,
+        @openstack_properties["ignore_server_availability_zone"])
 
       glance_params = {
         :provider => 'OpenStack',
@@ -199,7 +204,7 @@ module Bosh::OpenStackCloud
     #   power on new server
     # @param [Hash] resource_pool cloud specific properties describing the
     #   resources needed for this VM
-    # @param [Hash] networks list of networks and their settings needed for
+    # @param [Hash] network_spec list of networks and their settings needed for
     #   this VM
     # @param [optional, Array] disk_locality List of disks that might be
     #   attached to this server in the future, can be used as a placement
@@ -235,7 +240,7 @@ module Bosh::OpenStackCloud
           if flavor.ram
             # Ephemeral disk size should be at least the double of the vm total memory size, as agent will need:
             # - vm total memory size for swapon,
-            # - the rest for /vcar/vcap/data
+            # - the rest for /var/vcap/data
             min_ephemeral_size = (flavor.ram / 1024) * 2
             if flavor.ephemeral < min_ephemeral_size
               cloud_error("Flavor `#{resource_pool['instance_type']}' should have at least #{min_ephemeral_size}Gb " +
@@ -268,7 +273,7 @@ module Bosh::OpenStackCloud
           :user_data => Yajl::Encoder.encode(user_data(server_name, network_spec))
         }
 
-        availability_zone = select_availability_zone(disk_locality, resource_pool['availability_zone'])
+        availability_zone = @az_provider.select(disk_locality, resource_pool['availability_zone'])
         server_params[:availability_zone] = availability_zone if availability_zone
 
         if @boot_from_volume
@@ -292,16 +297,16 @@ module Bosh::OpenStackCloud
         @logger.info("Creating new server `#{server.id}'...")
         begin
           wait_resource(server, :active, :state)
+
+          @logger.info("Configuring network for server `#{server.id}'...")
+          network_configurator.configure(@openstack, server)
         rescue Bosh::Clouds::CloudError => e
           @logger.warn("Failed to create server: #{e.message}")
 
           with_openstack { server.destroy }
 
-          raise Bosh::Clouds::VMCreationFailed.new(true)
+          raise Bosh::Clouds::VMCreationFailed.new(true), e.message
         end
-
-        @logger.info("Configuring network for server `#{server.id}'...")
-        network_configurator.configure(@openstack, server)
 
         @logger.info("Updating settings for server `#{server.id}'...")
         settings = initial_agent_settings(server_name, agent_id, network_spec, environment,
@@ -398,7 +403,6 @@ module Bosh::OpenStackCloud
       with_thread_name("create_disk(#{size}, #{cloud_properties}, #{server_id})") do
         raise ArgumentError, 'Disk size needs to be an integer' unless size.kind_of?(Integer)
         cloud_error('Minimum disk size is 1 GiB') if (size < 1024)
-        cloud_error('Maximum disk size is 1 TiB') if (size > 1024 * 1000)
 
         volume_params = {
           :display_name => "volume-#{generate_unique_name}",
@@ -410,7 +414,7 @@ module Bosh::OpenStackCloud
           volume_params[:volume_type] = cloud_properties['type']
         end
 
-        if server_id
+        if server_id  && @az_provider.constrain_to_server_availability_zone?
           server = with_openstack { @openstack.servers.get(server_id) }
           if server && server.availability_zone
             volume_params[:availability_zone] = server.availability_zone
@@ -440,7 +444,6 @@ module Bosh::OpenStackCloud
       with_thread_name("create_boot_disk(#{size}, #{stemcell_id}, #{availability_zone}, #{boot_volume_cloud_properties})") do
         raise ArgumentError, "Disk size needs to be an integer" unless size.kind_of?(Integer)
         cloud_error("Minimum disk size is 1 GiB") if (size < 1024)
-        cloud_error("Maximum disk size is 1 TiB") if (size > 1024 * 1000)
 
         volume_params = {
           :display_name => "volume-#{generate_unique_name}",
@@ -448,7 +451,9 @@ module Bosh::OpenStackCloud
           :imageRef => stemcell_id
         }
 
-        volume_params[:availability_zone] = availability_zone if availability_zone
+        if availability_zone && @az_provider.constrain_to_server_availability_zone?
+          volume_params[:availability_zone] = availability_zone
+        end
         volume_params[:volume_type] = boot_volume_cloud_properties["type"] if boot_volume_cloud_properties["type"]
 
         @logger.info("Creating new boot volume...")
@@ -542,13 +547,14 @@ module Bosh::OpenStackCloud
     # @raise [Bosh::Clouds::CloudError] if volume is not found
     def snapshot_disk(disk_id, metadata)
       with_thread_name("snapshot_disk(#{disk_id})") do
+        metadata = Hash[metadata.map{|key,value| [key.to_s, value] }]
         volume = with_openstack { @openstack.volumes.get(disk_id) }
         cloud_error("Volume `#{disk_id}' not found") unless volume
 
         devices = []
         volume.attachments.each { |attachment| devices << attachment['device'] unless attachment.empty? }
 
-        description = [:deployment, :job, :index].collect { |key| metadata[key] }
+        description = ['deployment', 'job', 'index'].collect { |key| metadata[key] }
         description << devices.first.split('/').last unless devices.empty?
         snapshot_params = {
           :name => "snapshot-#{generate_unique_name}",
@@ -621,29 +627,7 @@ module Bosh::OpenStackCloud
     # @return [String] availability zone to use or nil
     # @note this is a private method that is public to make it easier to test
     def select_availability_zone(volumes, resource_pool_az)
-      if volumes && !volumes.empty?
-        disks = volumes.map { |vid| with_openstack { @openstack.volumes.get(vid) } }
-        ensure_same_availability_zone(disks, resource_pool_az)
-        disks.first.availability_zone
-      else
-        resource_pool_az
-      end
-    end
-
-    ##
-    # Ensure all supplied availability zones are the same
-    #
-    # @param [Array] disks OpenStack volumes
-    # @param [String] default availability zone specified in
-    #   the resource pool (may be nil)
-    # @return [String] availability zone to use or nil
-    # @note this is a private method that is public to make it easier to test
-    def ensure_same_availability_zone(disks, default)
-      zones = disks.map { |disk| disk.availability_zone }
-      zones << default if default
-      zones.uniq!
-      cloud_error "can't use multiple availability zones: %s" %
-        zones.join(', ') unless zones.size == 1 || zones.empty?
+      @az_provider.select(volumes, resource_pool_az)
     end
 
     private
@@ -668,6 +652,7 @@ module Bosh::OpenStackCloud
       data['registry'] = { 'endpoint' => @registry.endpoint }
       data['server'] = { 'name' => server_name }
       data['openssh'] = { 'public_key' => public_key } if public_key
+      data['networks'] = network_spec
 
       with_dns(network_spec) do |servers|
         data['dns'] = { 'nameserver' => servers }
@@ -830,8 +815,9 @@ module Bosh::OpenStackCloud
     def detach_volume(server, volume)
       @logger.info("Detaching volume `#{volume.id}' from `#{server.id}'...")
       volume_attachments = with_openstack { server.volume_attachments }
-      if volume_attachments.find { |a| a['volumeId'] == volume.id }
-        with_openstack { volume.detach(server.id, volume.id) }
+      attachment = volume_attachments.find { |a| a['volumeId'] == volume.id }
+      if attachment
+        with_openstack { volume.detach(server.id, attachment['id']) }
         wait_resource(volume, :available)
       else
         @logger.info("Disk `#{volume.id}' is not attached to server `#{server.id}'. Skipping.")
@@ -988,6 +974,5 @@ module Bosh::OpenStackCloud
       end
       options
     end
-
   end
 end

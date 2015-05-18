@@ -1,3 +1,322 @@
+## 2941
+
+New Features:
+
+  * cpi: aws: Light stemcells can be booted in all regions [8d21386]
+
+Improvements:
+
+  * stemcell: Bump OS images [5b7e612]
+        - reduce daily and weekly cron load
+        - randomize cron start times to reduce congestion
+        - remove unnecessary packages to make OS image smaller
+  * director: Made gateway a mandatory param for manual network subnets [1145448]
+
+## 2922
+
+New Features:
+
+  * cli: Ignore non-existent deployment in `delete deployment` cmd
+        to make CLI automation easier [dd6801e]
+  * cli: Add cloud config into to 'bosh deployments' output
+        to know if deployment is using latest cloud config [bcf1d4d]
+
+Improvements:
+
+  * stemcell: ubuntu: Do not configure eth0 since the Agent
+        should configure networking during its start up [e481b4a]
+  * director: Flush DNS cache after modifying DNS records [2137b55]
+  * stemcell: Change rake tasks to start producting CentOS 7 stemcells [e5bceba]
+  * agent: Bump agent [752ff10]
+        - set permissions on config files
+        - more changes to network bootstrapping
+
+## 2915
+
+New Features:
+
+  * cli: Allow passing --all flag to `bosh cleanup`
+          to delete all unused releases and stemcells [2bc5e62]
+  * cli: Modified cck --auto so that it recreated VMs
+          if they are missing [05ee580]
+
+Improvements:
+
+  * cpi: aws: Retry attaching disk for upto 10 mins if disk is in
+          VolumeInUse state, since sometimes AWS is slow
+          to propagate disk's true state. [f654c5f]
+  * cli: Permit creation of dev release with version [5d433d6]
+  * director: Bump nokogiri to 1.6.6, vcloud to 0.7.3 [39c6cdf]
+  * stemcell: Ensure stemcell stages run as UID 1000
+          (vcap's UID on stemcells) so that vcap owned files
+          are still owned by vcap when stemcell boots up [56dd84c]
+  * stemcell: Add hmac-sha1 back as an allowed sshd MAC.
+          Needed by golang and java ssh libraries. [a99c833]
+  * stemcell: Add syslog user to vcap group so rsyslog
+          can write to /var/vcap/sys/log/ [b4fea21]
+  * cpi: openstack: Stop artificially limiting volume sizes to 1TiB [9bda2ae]
+  * agent: Bump agent to pull-in set of changes to networking [c4f211a]
+
+## 2905
+
+Improvements:
+
+  * stemcell: rhel: Introduced 'rhel' OS type, supporting only version 7 [5491fec]
+  * stemcell: rhel: Unsubscribe system from RHN once OS image has been built [259e787]
+  * cpi: vsphere: Log and print more info when we can't find a datastore for a disk [b5488e1]
+
+## 2902
+
+New Features:
+
+  * cli: Introduce UAA authentication
+
+Improvements:
+
+  * stemcell: Do not verify exact kernel version to ease development workflow [b1f7afc]
+
+Bug Fixes:
+
+  * cpi: vsphere: Don't raise an exception when finding a disk
+          if the folder doesn't exist since cpi can be configured
+          with multiple folders [f7c46db]
+  * cli: Compiling a release now places LICENSE/NOTICE at the root [9bbb51d]
+
+## 2891
+
+Improvements:
+
+  * stemcell: ubuntu: Bump libssl [f690d2e]
+  * stemcell: ubuntu: Bump libgnutls26 [622ffe8]
+
+Bug Fixes:
+
+  * cli: Compiling a release places LICENSE/NOTICE at the root [58f9848]
+
+## 2881
+
+Improvements:
+
+  * cpi: vsphere: Removed CPI specific database to allow greater
+          mobility of persistent disks (e.g. moved to a different datastore)
+          and to prepare for externalizing vSphere CPI
+
+## 2859
+
+Improvements:
+
+  * stemcell: ubuntu: Bump to get 3.16 kernel
+        and get libc6 from 2.19-0ubuntu6.6 [5154430]
+        [story](https://www.pivotaltracker.com/story/show/89216658)
+  * director: Provide better Director job configuration f
+        or external CPIs [3634979]
+
+## 2858
+
+Bug Fixes:
+
+  * director: Correctly save long manifests with MySQL DB [a091114]
+
+## 2855
+
+New Features:
+
+  * stemcell: ubuntu: Updated Ubuntu Trusty to 14.04.2 [7108831]
+  * director: Allow UAA as use management provider configuration [8ac86a2]
+
+Improvements:
+
+  * cpi: openstack: Write the networks configuration to the config drive
+        in preparation for allowing to use non-dhcp OpenStack networking [298fe2f]
+  * stemcell: ubuntu: Bump to 14.04.2 [7108831]
+  * cli: Add warning when loading cli takes longer than 5 secs [8aca1d8]
+
+## 2852
+
+Improvements:
+
+  * stemcell: ubuntu: Bump unzip to 6.0-9ubuntu1.3 [bd3182a]
+
+## 2849
+
+New Features:
+
+  * cli: Include license in release [c63287a]
+
+## 2847
+
+Improvements:
+
+  * stemcell: harden sshd config, and remove postfix and tripwire [1f4dd4a]
+  * stemcell: remove all traces of lucid stemcell [4559a69]
+  * agent: Bump agent to clean after compiling bits [cd3fcb9]
+  * cli: Store release jobs/packages tarballs in ~/.bosh/cache [c2f7ac1]
+
+## 2839
+
+Improvements:
+
+  * stemcell: Enable console output for openstack in kernel [f4f1cdd/c89b61e]
+  * stemcell: ubuntu: Upgrade ubuntu unzip version [9481cd4]
+
+## 2831
+
+Improvements:
+
+  * agent: Bump agent so that it waits for monit
+        to start up during bootstrapping [4cf37f4]
+
+## 2830
+
+Bug Fixes:
+
+  * stemcell: Stemcell names include bosh prefix once again [fbb2016]
+
+## 2829
+
+Improvements:
+
+  * director: Update fog to 1.27 [08e9edc]
+  * stemcell: centos: Bump CentOS to resolve CVE-2015-0235 (ghost) [b7ebec5]
+
+## 2827
+
+New Features:
+
+  * stemcell: openstack: Publish raw stemcells in addition to qcow2 [382e448]
+
+Improvements:
+
+  * director: Follow redirects when downloading remote stemcells/releases [5d2bb05]
+  * stemcell: Agent is responsible for creating /var/vcap/sys symlink [7563294]
+
+## 2824
+
+New Features:
+
+  * cpi: openstack: Permit volumes to default to the default availability zone,
+        ignoring the AZ of the server. This allows multiple compute AZs with a
+        single storage AZ configuration backed by Ceph to operate [e1b6e14]
+  * stemcell: upgrade libssl to 1.0.1f-1ubuntu2.8 for USN-2459-1 [35799c7]
+        [story](https://www.pivotaltracker.com/story/show/86540636)
+
+Improvements:
+
+  * cli: Don't confirm release upload [c1e4886]
+
+## 2820
+
+Improvements:
+
+  * cpi: vsphere: Automatically create VMs/Templates folders
+        _of any depth_ if they are not found when VMs are created [c752e39]
+
+## 2818
+
+New Features:
+
+  * cpi: aws: Support encryption of persistent disks that are EBS volumes [1f8b6fc]
+
+Improvements:
+
+  * agent: Bump agent so that it fails if it cannot find ephemeral disk or cannot
+        paritition root disk to add ephemeral data partition [f3e86a8]
+
+## 2811
+
+Bug Fixes:
+
+  * stemcell: aws: Define block device mapping on aws stemcells
+        so that older versions of the Director can still deploy them [a3d0ca1]
+
+## 2810
+
+New Features:
+
+  * cpi: aws: allow to request EBS backed ephemeral disk for any instance type
+        by specifying `ephemeral_disk` on the resource_pool's cloud_properties. [e7ae973]
+
+Improvements:
+
+  * stemcell: Run logrotate hourly instead of daily [5e841be]
+  * stemcell: Rotate /var/log files based on size [5e841be]
+
+Bug Fixes:
+
+  * cpi: openstack: Use volume attachment id instead of just volume id
+        when detaching volumes [41e69dc]
+
+## 2809
+
+Bug Fixes:
+
+  * director: Denormalize Task => User association so Tasks have username
+        so that operator can delete Director users even if there are tasks
+        associated with that user [11a8c7a]
+
+## 2807
+
+New Features:
+
+  * cpi: vsphere: Automatically create Datastore folders
+        if they are not found when persistent disks are created [c2b5a51]
+
+Improvements:
+
+  * cpi: aws: Explicitly request ephemeral disk for m3 instances on AWS
+        because sometimes AWS fails to honor the AMI's block_device_mappings [83c6aef]
+
+## 2798
+
+Improvements:
+
+  * agent: Bump bosh-agent so that it can look up persistent disks
+        by their OpenStack UUID instead of a device path [7d6c56c]
+
+## 2797
+
+New Features:
+
+  * cpi: openstack: Add support for OpenStack Nova scheduler hints.
+        scheduler_hints can be now specified on the resource_pool's
+        cloud_properties. [a32e62e]
+  * cpi: vsphere: Automatically create VMs/Templates folders
+        if they are not found when VMs are created [9221ece]
+  * cli: added `--parallel X` option so that `bosh sync blobs`
+        can download blobs in parallel [458180b]
+
+Improvements:
+
+  * cli: fix issue with having empty release_versions array in release parameters
+        so that `bosh releases` command still shows other uploaded releases [f3c9662]
+  * stemcell: monit should be started by the agent to make sure agent
+        has time to mount `/var/vcap/sys/run` on tmpfs [ed7b8e1]
+
+## 2792
+
+New Features:
+
+  * monitor: adding graphite plugin to bosh-monitor [91c1836]
+
+Improvements:
+
+  * cli: Blobstore config is no longer required to create a dev release [d0aa917]
+
+## 2789
+
+New Features:
+
+  * cli: add `--redact-diff` option to `bosh deploy` cli command [3b22d7a]
+
+## 2788
+
+Improvements:
+
+  * cpi: vsphere: Check for attached disk by disk_cid instead of full path
+        because vCenter sometimes returns internal vSAN path
+        instead of pretty UI path [ff3cedf]
+  * monitor: Log when health monitor is returning 500 from /healthz [bcc9dec]
+
 ## 2786
 
 New Features:

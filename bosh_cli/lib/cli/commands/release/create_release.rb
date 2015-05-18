@@ -1,6 +1,8 @@
+require File.expand_path(File.dirname(__FILE__) + '/../../release_print_helper.rb')
 module Bosh::Cli::Command
   module Release
     class CreateRelease < Base
+      include ReleasePrintHelper
       include Bosh::Cli::DependencyHelper
 
       DEFAULT_RELEASE_NAME = 'bosh-release'
@@ -26,7 +28,7 @@ module Bosh::Cli::Command
           end
 
           say('Recreating release from the manifest')
-          Bosh::Cli::ReleaseCompiler.compile(manifest_file, release.blobstore)
+          Bosh::Cli::ReleaseCompiler.compile(manifest_file, cache_dir, release.blobstore)
           release_filename = manifest_file
         else
           version = options[:version]
@@ -40,7 +42,7 @@ module Bosh::Cli::Command
           release.save_config
         end
       rescue SemiSemantic::ParseError
-        err("Invalid version: `#{version}'. Please specify a valid version (ex: 1.0.0 or 1.0-beta.2+dev.10).".make_red)
+        err("Invalid version: '#{version}'. Please specify a valid version (ex: 1.0.0 or 1.0-beta.2+dev.10).".make_red)
       rescue Bosh::Cli::ReleaseVersionError => e
         err(e.message.make_red)
       end
@@ -55,13 +57,11 @@ module Bosh::Cli::Command
 
         Bosh::Cli::Versions::MultiReleaseSupport.new(@work_dir, default_release_name, self).migrate
       end
-
+      
       def create_from_spec(version)
-        final = options[:final]
         force = options[:force]
         name = options[:name]
         manifest_only = !options[:with_tarball]
-        dry_run = options[:dry_run]
 
         release.blobstore # prime & validate blobstore config
 
@@ -70,7 +70,7 @@ module Bosh::Cli::Command
         raise_dirty_state_error if dirty_state? && !force
 
         if final
-          confirm_final_release(dry_run)
+          confirm_final_release
           unless name
             save_final_release_name if release.final_name.blank?
             name = release.final_name
@@ -84,14 +84,19 @@ module Bosh::Cli::Command
           header('Building DEV release'.make_green)
         end
 
+        say("Release artifact cache: #{cache_dir}")
+
+        header('Building license')
+        license_artifacts = build_licenses
+
         header('Building packages')
-        packages = build_packages(dry_run, final)
+        package_artifacts = build_packages
 
         header('Building jobs')
-        jobs = build_jobs(packages.map(&:name), dry_run, final)
+        job_artifacts = build_jobs(package_artifacts.map { |artifact| artifact.name })
 
         header('Building release')
-        release_builder = build_release(dry_run, final, jobs, manifest_only, packages, name, version)
+        release_builder = build_release(job_artifacts, manifest_only, package_artifacts, license_artifacts, name, version)
 
         header('Release summary')
         show_summary(release_builder)
@@ -113,7 +118,7 @@ module Bosh::Cli::Command
         release_builder.manifest_path
       end
 
-      def confirm_final_release(dry_run)
+      def confirm_final_release
         confirmed = non_interactive? || agree("Are you sure you want to generate #{'final'.make_red} version? ")
         if !dry_run && !confirmed
           say('Canceled release generation'.make_green)
@@ -133,39 +138,13 @@ module Bosh::Cli::Command
         end
       end
 
-      def build_packages(dry_run, final)
-        packages = Bosh::Cli::PackageBuilder.discover(
-          work_dir,
-          :final => final,
-          :blobstore => release.blobstore,
-          :dry_run => dry_run
-        )
-
-        packages.each do |package|
-          say("Building #{package.name.make_green}...")
-          package.build
-          nl
-        end
-
-        if packages.size > 0
-          package_index = packages.inject({}) do |index, package|
-            index[package.name] = package.dependencies
-            index
-          end
-          sorted_packages = tsort_packages(package_index)
-          header('Resolving dependencies')
-          say('Dependencies resolved, correct build order is:')
-          sorted_packages.each do |package_name|
-            say('- %s' % [package_name])
-          end
-          nl
-        end
-
-        packages
+      def archive_repository_provider
+        @archive_repository_provider ||= Bosh::Cli::ArchiveRepositoryProvider.new(work_dir, cache_dir, release.blobstore)
       end
 
-      def build_release(dry_run, final, jobs, manifest_only, packages, name, version)
-        release_builder = Bosh::Cli::ReleaseBuilder.new(release, packages, jobs, name,
+      def build_release(job_artifacts, manifest_only, package_artifacts, license_artifacts, name, version)
+        license_artifact = license_artifacts.first
+        release_builder = Bosh::Cli::ReleaseBuilder.new(release, package_artifacts, job_artifacts, license_artifact, name,
           final: final,
           commit_hash: commit_hash,
           version: version,
@@ -183,22 +162,59 @@ module Bosh::Cli::Command
         release_builder
       end
 
-      def build_jobs(built_package_names, dry_run, final)
-        jobs = Bosh::Cli::JobBuilder.discover(
-          work_dir,
-          :final => final,
-          :blobstore => release.blobstore,
-          :dry_run => dry_run,
-          :package_names => built_package_names
-        )
+      def build_packages
+        packages = Bosh::Cli::Resources::Package.discover(work_dir)
+        artifacts = packages.map do |package|
+          say("Building #{package.name.make_green}...")
+          artifact = archive_builder.build(package)
+          nl
+          artifact
+        end
 
-        jobs.each do |job|
-          say("Building #{job.name.make_green}...")
-          job.build
+        if packages.size > 0
+          package_index = artifacts.inject({}) do |index, artifact|
+            index[artifact.name] = artifact.dependencies
+            index
+          end
+          sorted_packages = tsort_packages(package_index)
+          header('Resolving dependencies')
+          say('Dependencies resolved, correct build order is:')
+          sorted_packages.each do |package_name|
+            say('- %s' % [package_name])
+          end
           nl
         end
 
-        jobs
+        artifacts
+      end
+
+      def build_jobs(packages)
+        jobs = Bosh::Cli::Resources::Job.discover(work_dir, packages)
+        artifacts = jobs.map do |job|
+          say("Building #{job.name.make_green}...")
+          artifact = archive_builder.build(job)
+          nl
+          artifact
+        end
+
+        artifacts
+      end
+
+      def build_licenses
+        licenses = Bosh::Cli::Resources::License.discover(work_dir)
+        artifacts = licenses.map do |license|
+          say("Building #{'license'.make_green}...")
+          artifact = archive_builder.build(license)
+          nl
+          artifact
+        end.compact
+
+        artifacts
+      end
+
+      def archive_builder
+        @archive_builder ||= Bosh::Cli::ArchiveBuilder.new(archive_repository_provider,
+          :final => final, :dry_run => dry_run)
       end
 
       def save_final_release_name
@@ -222,57 +238,19 @@ module Bosh::Cli::Command
         release.save_config
       end
 
-      def show_summary(builder)
-        packages_table = table do |t|
-          t.headings = %w(Name Version Notes)
-          builder.packages.each do |package|
-            t << artifact_summary(package)
-          end
-        end
-
-        jobs_table = table do |t|
-          t.headings = %w(Name Version Notes)
-          builder.jobs.each do |job|
-            t << artifact_summary(job)
-          end
-        end
-
-        say('Packages')
-        say(packages_table)
-        nl
-        say('Jobs')
-        say(jobs_table)
-
-        affected_jobs = builder.affected_jobs
-
-        if affected_jobs.size > 0
-          nl
-          say('Jobs affected by changes in this release')
-
-          affected_jobs_table = table do |t|
-            t.headings = %w(Name Version)
-            affected_jobs.each do |job|
-              t << [job.name, job.version]
-            end
-          end
-
-          say(affected_jobs_table)
-        end
-      end
-
-      def artifact_summary(artefact)
-        result = []
-        result << artefact.name
-        result << artefact.version
-        result << artefact.notes.join(', ')
-        result
-      end
-
       def commit_hash
         status = Bosh::Exec.sh('git show-ref --head --hash=8 2> /dev/null')
         status.output.split.first
       rescue Bosh::Exec::Error
         '00000000'
+      end
+
+      def dry_run
+        dry_run ||= options[:dry_run]
+      end
+
+      def final
+        final ||= options[:final]
       end
     end
   end

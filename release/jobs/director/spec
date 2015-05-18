@@ -59,7 +59,7 @@ properties:
     default: 900
   director.max_upload_size:
     description: Max allowed file size for upload
-    default: 5000m
+    default: 10000m
   director.ssl.cert:
     description: SSL Certificate for director (PEM encoded)
   director.ssl.key:
@@ -90,6 +90,14 @@ properties:
   director.max_vm_create_tries:
     description: Max retries when creating VMs
     default: 5
+
+  #Director User Management
+  director.user_management.provider:
+    description: "User management implementation (local|uaa)"
+    default: local
+  director.user_management.options:
+    description: "Options for the user management provider. For 'uaa', 'key' is the secret shared with UAA for token validation."
+    default: ~
 
   redis.address:
     description: Address of the redis server
@@ -283,11 +291,8 @@ properties:
       - 1.pool.ntp.org
 
   # Cpi
-  external_cpi.enabled:
-    description: Enables external cpi
-    default: false
-  external_cpi.name:
-    description: Name of external cpi package
+  director.cpi_job:
+    description: Name of cpi job (null to use bundled cpi gems)
   agent.blobstore.access_key_id:
     description: AWS access_key_id for agent used by s3 blobstore plugin
   agent.blobstore.secret_access_key:
@@ -387,6 +392,9 @@ properties:
     default: 5
   openstack.config_drive:
     description: Config drive device (cdrom or disk) to use as metadata service on OpenStack (optional, nil by default)
+  openstack.ignore_server_availability_zone:
+    description: When creating disks do not use the servers AZ, default to openstack default
+    default: false
   vcenter.address:
     description: Address of vCenter server used by vsphere cpi
   vcenter.user:

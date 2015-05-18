@@ -94,9 +94,12 @@ This command should be used for bootstrapping bosh from scratch.
         misc_command.options = self.options
         misc_command.set_target(manifest.vip)
         misc_command.options[:target] = manifest.vip
-        misc_command.login('admin', 'admin')
 
-        self.options[:target] = misc_command.config.target
+        login_command = Bosh::Cli::Command::Login.new
+        login_command.options = misc_command.options
+        login_command.login('admin', 'admin')
+
+        self.options[:target] = login_command.config.target
       end
 
       def deploy
@@ -104,7 +107,7 @@ This command should be used for bootstrapping bosh from scratch.
         deployment_command.options = self.options
         deployment_command.perform
 
-        new_director = Bosh::Cli::Client::Director.new("https://#{manifest.vip}:25555", nil, nil,
+        new_director = Bosh::Cli::Client::Director.new("https://#{manifest.vip}:25555", nil,
                                                num_retries: 12, retry_wait_interval: 5)
         new_director.wait_until_ready
       end
@@ -130,7 +133,7 @@ This command should be used for bootstrapping bosh from scratch.
 
       def latest_aws_ubuntu_bosh_stemcell_filename
         definition = Bosh::Stemcell::Definition.for('aws', 'xen', 'ubuntu', 'trusty', 'go', true)
-        Bosh::Stemcell::ArchiveFilename.new('latest', definition, 'bosh-stemcell')
+        Bosh::Stemcell::ArchiveFilename.new('latest', definition, 'bosh-stemcell', 'raw')
       end
 
       def bosh_release

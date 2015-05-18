@@ -2,12 +2,7 @@ require 'spec_helper'
 
 describe VSphereCloud::Resources::Datastore do
   subject(:datastore) {
-    VSphereCloud::Resources::Datastore.new(
-      :obj => datastore_mob,
-      'name' => 'foo_lun',
-      'summary.capacity' => 16 * 1024 * 1024 * 1024,
-      'summary.freeSpace' => 8 * 1024 * 1024 * 1024
-    )
+    VSphereCloud::Resources::Datastore.new('foo_lun', datastore_mob, 16 * 1024, 8 * 1024)
   }
 
   let(:datastore_mob) { instance_double('VimSdk::Vim::Datastore') }
@@ -58,6 +53,11 @@ describe VSphereCloud::Resources::Datastore do
     it 'returns the printable form' do
       expect(datastore.inspect).to eq("<Datastore: #{datastore_mob} / foo_lun>")
     end
+  end
 
+  describe '#debug_info' do
+    it 'returns the disk space info' do
+      expect(datastore.debug_info).to eq("foo_lun (8192MB free of 16384MB capacity)")
+    end
   end
 end

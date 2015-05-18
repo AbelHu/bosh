@@ -1,4 +1,5 @@
-require 'cloud/vsphere/vm_creator_builder'
+require 'spec_helper'
+# require 'cloud/vsphere/vm_creator_builder'
 
 module VSphereCloud
   describe VmCreatorBuilder do
@@ -15,6 +16,7 @@ module VSphereCloud
         cpu = double('number of cpus')
         agent_env = double('agent_env')
         file_provider = double('file_provider')
+        disk_provider = double('disk_provider')
 
         cloud_properties = {
           'ram' => memory,
@@ -33,11 +35,12 @@ module VSphereCloud
           logger,
           cpi,
           agent_env,
-          file_provider
+          file_provider,
+          disk_provider
         ).and_return(vm_creator)
 
         expect(
-          subject.build(resources, cloud_properties, client, cloud_searcher, logger, cpi, agent_env, file_provider)
+          subject.build(resources, cloud_properties, client, cloud_searcher, logger, cpi, agent_env, file_provider, disk_provider)
         ).to eq(vm_creator)
       end
     end

@@ -4,10 +4,22 @@ set -e
 
 base_dir=$(readlink -nf $(dirname $0)/../..)
 source $base_dir/lib/prelude_apply.bash
+source $base_dir/etc/settings.bash
 
 mkdir -p $chroot/var/lib/rpm
 rpm --root $chroot --initdb
-rpm --root $chroot --force --nodeps --install http://mirror.centos.org/centos/6/os/x86_64/Packages/centos-release-6-6.el6.centos.12.2.x86_64.rpm
+case "${stemcell_operating_system_version}" in
+  "7")
+    centos_release_package_url="http://mirror.centos.org/centos/7/os/x86_64/Packages/centos-release-7-1.1503.el7.centos.2.8.x86_64.rpm"
+    epel_package_url="http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm"
+    ;;
+  *)
+    echo "Unknown centos version: ${stemcell_operating_system_version}"
+    exit 1
+    ;;
+esac
+
+rpm --root $chroot --force --nodeps --install ${centos_release_package_url}
 
 cp /etc/resolv.conf $chroot/etc/resolv.conf
 
@@ -22,11 +34,12 @@ unshare -m $SHELL <<INSTALL_YUM
 INSTALL_YUM
 
 run_in_chroot $chroot "
-rpm --force --nodeps --install http://mirror.centos.org/centos/6/os/x86_64/Packages/centos-release-6-6.el6.centos.12.2.x86_64.rpm
-rpm --force --nodeps --install http://ftp.osuosl.org/pub/fedora-epel/6/x86_64/epel-release-6-8.noarch.rpm
+rpm --force --nodeps --install ${centos_release_package_url}
+rpm --force --nodeps --install ${epel_package_url}
 rpm --rebuilddb
 "
 
+pkg_mgr install kernel
 pkg_mgr groupinstall Base
 pkg_mgr groupinstall 'Development Tools'
 
@@ -41,4 +54,14 @@ echo 'READAHEAD_COLLECT_ON_RPM="no"' >> ${chroot}/etc/sysconfig/readahead
 cp ${chroot}/usr/share/zoneinfo/UTC ${chroot}/etc/localtime
 
 # Setting locale
-echo "LANG=\"en_US.UTF-8\"" >> ${chroot}/etc/sysconfig/i18n
+case "${stemcell_operating_system_version}" in
+  "7")
+    locale_file=/etc/locale.conf
+    ;;
+  *)
+    echo "Unknown CentOS release: ${stemcell_operating_system_version}"
+    exit 1
+    ;;
+esac
+
+echo "LANG=\"en_US.UTF-8\"" >> ${chroot}/${locale_file}

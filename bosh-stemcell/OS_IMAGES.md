@@ -7,6 +7,55 @@ OS images are stored in S3 bucket [bosh-os-images](http://s3.amazonaws.com/bosh-
 
 Ubuntu 14.04 images have filename `bosh-ubuntu-trusty-os-image.tgz`
 
+* `gXS8tB8AlsACLxca1aOF.A2dJroEW9Wx`
+  update kernel
+
+* `4wantbBiSSKve58dnjaR2wSemOAM7Xiy`
+  upgrade rsyslog to version 8.x (latest version in the upstream project's repo)
+
+* `hdWMpoRhNlIYrwt61zt9Ix2mYln_hTys`
+  remove unnecessary packages to make OS image smaller
+  reduce daily and weekly cron load
+  randomize remaining cronjob start times to reduce congestion in clustered deployments
+
+* `0YARMwfbXRhCyma2hdTZTd97IlZqW3Qc`
+  Add hmac-sha1 to sshd_config (required by go ssh lib)
+
+* `G.Wzs2o9_mu6qvC2Nq7ZUvvo6jJSHjC8`
+  update libgnutls26 to 2.12.23-12ubuntu2.2
+
+* `Hcp6Wc4bQp9WB0i.y_2Z4qYzsO.7AXht`
+  update libssl to 1.0.1f-1ubuntu2.11
+
+* `jU0u9AnG550hgtZhH4TS30eU0lOJZxWn`
+  update libc6 to 2.19-0ubuntu6.6
+  update linux-headers to 3.16.0-31
+
+* `bUE_h7edxT9PNKT6ntBKvXH8MzK3.wiA`
+  update trusty to 14.04.2
+
+* `O6Co_wDMuso7prheiIRVc_Q7_T1sC0EP`
+  upgrade unzip to 6.0-9ubuntu1.3
+
+* 'yacqn9ooY2Idc6Fb65QE25zl2MSvPX52'
+  lock down sshd_config permissions
+  disable weak ssh ciphers
+  disable weak ssh MACs
+  remove postfix
+
+* 'TjC3SnsvaIhROEa1J1L77Mj21TRikCW0'
+  upgrade unzip to 6.0-9ubuntu1.2
+
+* `xIk.jCEzC5CrI.VrogNsyKRnHBtNIJ1w`
+  Adds kernel flags to enable console output in openstack environments
+  upgrade linux kernel to 3.13.0-45
+
+* `LNYTMCODzn39poV8I4yUg1RxmAfTZPth`
+  upgrade libssl to 1.0.1f-1ubuntu2.8
+
+* `Wxp0XbijOQyo_pYgs3ctYQ0Dc6uPaO.I`
+  switch logrotate to rotate based on size
+
 * `QB8K.uFpJXHYJ4Nm.Of.CALZ_8Vh7sF2`
   start monit during agent bootstrap
 
@@ -78,79 +127,64 @@ Ubuntu 14.04 images have filename `bosh-ubuntu-trusty-os-image.tgz`
 
 ## CentOS 6.6
 
-CentOS 6.6 images have filename `bosh-centos-6_6-os-image.tgz`
+CentOS 6.6 images have filename `bosh-centos-6-os-image.tgz`
 
- * `xbBfE2GA7AgmCGA6MfNfhHX67vkJlIze`
+* `2wi4CWKxfqSLjKQp0T4IKcAPaNFNhCFG`
+  update kernel
+
+* `kkUYP.4sM_hdsn3Sfcr6ksahFpPgb2D8`
+  Add hmac-sha1 to sshd_config (required by go ssh lib)
+
+* '3Yu.JSS0rB0oV6Gt3QnFfxaxvRju71bQ'
+  lock down sshd_config permissions
+  disable weak ssh ciphers
+  disable weak ssh MACs
+
+* `lUG9hrPUDugWx4Sv5vuKiN1X2Z1.lN.8`
+  Adds kernel flags to enable console output in openstack environments
+
+* `.EqtRtHJyHTr3hg4nFPq5QmJ4UxQ2WU.`
+  upgrade linux kernel to 3.13.0-45
+
+* `ISA4tKjaoq4koVay5rAzNZlzX7X0KafH`
+  patch GNU libc to resolve CVE-2015-0235, "GHOST"
+
+* `aoUtngdallpd2f6HhMxCveFvk6t6B2Ru`
+  upgrade openssl to 1.0.1e-30.el6_6.5
+
+* `Hb884_xVvhoIhdTEmMtaTHKC.s7b9AmN`
+  switch logrotate to rotate based on size
+
+* `xbBfE2GA7AgmCGA6MfNfhHX67vkJlIze`
   start monit during agent bootstrap
 
- * `PB2C5YnPG.zZ5MgjBR96Y40UDpqVQb_D`
+* `PB2C5YnPG.zZ5MgjBR96Y40UDpqVQb_D`
   disable reverse DNS resolution for sshd
 
- * `6mBEQ5Gt5O6NJIFZxlyrf_05i.6s0OWF`
+* `6mBEQ5Gt5O6NJIFZxlyrf_05i.6s0OWF`
   CentOS 6.6
 
-## CentOS 6.5
 
-CentOS 6.5 images have filename `bosh-centos-6_5-os-image.tgz`
+## CentOS 7
 
-* `KVSJwBVkLQ.OKnVpgBiJILrcJr1E8IPK`
-  upgrade openssl to 1.0.1e-30.el6_5.2
+CentOS 7 images have filename `bosh-centos-7-os-image.tgz`
 
-* `ORrEQRfUIO59WkVGbkBsv9jgGjU9KzBW`
-  upgrade bash to 4.1.2-15.el6_5.2
+* `1hBkiByEM5v3YhznWLQmmTdhA8eKkb3g`
+  upgrade rsyslog to version 8.x (latest version in the upstream project's repo)
 
-* `qHA0KEgGnb7Tf8SAzJVnrKb9OcaXOurv`
-  upgrade bash to 4.1.2-15.el6_5.1
+* `uVRZSKujJb4zU2KrtAH.xVLly3agHc7M`
+  reinstall `base` metapackage to enable proper BOSH Director operation 
 
-* `GwV8gWhNVttyPdapUxh38tnYwZsrNbSc`
-  chmod /home/vcap to 755
+* `0_zs2Y2A.QhW00r1tbb7Oa7XcMY3GdkW`
+  install net-tools for stemcell acceptance testing
 
-* `embHpGSvY3DXaOL8MFNA_a28B1yYG4pv`
-  install parted
+* `cNakw6wcTjEyWaZBQWTUuoeYKiuLYB3k`
+  remove unnecessary packages to make OS image smaller
+  reduce daily and weekly cron load
+  randomize remaining cronjob start times to reduce congestion in clustered deployments
 
-* `d085u3Knx4KtTOGmFmanfNHH_oY9Hd.n`
-  using latest OpenSSL `1.0.1f`
-  (23fe6fcd8518446cbdbec360c2f1e4b37834db88)
+* `x0Y6dVzdBHSAt33zNO.aOu_QvY2pqVlT`
+  Auto-restart runsvdir
 
-* `OTJRx3.keQXrSVMfXhvhRhwWH1wrbdvV`
-  set timezone (UTC) and locale (UTF8)
-  (1eecf11f5fb153effc44cc720ea4b232a620649f)
-
-* `IFHfIgS_2fIP.U0cWMH7..afJjo4ysz0`
-  upgraded OpenSSL to `1.0.1e-16.el6_5.7`
-
-* `wFNFCug89mKKgjxVdpITswcfWVPETDUS`
-  CentOS 6.5
-
-
-## Ubuntu 10.04
-
-Ubuntu 10.04 images have filename `bosh-ubuntu-lucid-os-image.tgz`
-
-* `eZWOusvZfqLMPCxoh6ywHqEeVvkv6oRW`
-  update libgcrypt11 to 1.4.4-5ubuntu2.3
-  update gnupg to 1.4.10-2ubuntu1.7
-
-* `6M6P12YoeRKtGB6QkRcAE02Cd1QrTfVN`
-  update libc6 to 2.11.1-0ubuntu7.16
-
-* `CK1gpiyNTC7ijICLm_xIKA9o2YHrlCU1`
-  using latest libssl `0.9.8k-7ubuntu8.21`
-
-* `L9pIPNIBLrq7zRcuh.8ufAseBvWfP.1d`
-  using latest libssl `0.9.8k-7ubuntu8`
-
-* `hGvKHxxg9bboL3e1Ldi27H746AsmEcRQ`
-  Remove resolv.conf clearing from firstboot.sh
-  (307d760b783454c96717a9b1036265783826a369)
-
-* `IFBbp72WZyd3SHN.75RWZz.jWJeEU40s`
-  using latest OpenSSL `1.0.1f`
-  (23fe6fcd8518446cbdbec360c2f1e4b37834db88)
-
-* `EGp_C9N3T0ctgdv0FJ44_AuF7MUlpA9G`
-  using /sbin/rescan-scsi-bus to match Ubuntu 14.04
-  (e448b0e8b0967288488c929fbbf953b22a046d1d)
-
-* `r5606X8C8rS8dBlENBVEXoIaPVBVobXw`
-  Ubuntu 10.04
+* `3I9TaTJV5vUkUpGJETzqD8wsWhP2vsFE`
+  CentOS 7

@@ -6,12 +6,9 @@ module Bosh::Director
   describe Api::Controllers::LocksController do
     include Rack::Test::Methods
 
-    subject(:app) { described_class } # "app" is a Rack::Test hook
-
-    before { Api::ResourceManager.stub(:new) }
-
+    subject(:app) { described_class.new(Config.new({})) }
     let(:redis) { double('Redis') }
-
+    before { allow(Api::ResourceManager).to receive(:new) }
     before { allow(BD::Config).to receive(:redis).and_return(redis) }
 
     context 'authenticated access' do

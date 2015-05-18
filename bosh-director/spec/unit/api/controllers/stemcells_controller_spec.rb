@@ -5,19 +5,19 @@ module Bosh::Director
   describe Api::Controllers::StemcellsController do
     include Rack::Test::Methods
 
-    subject(:app) { described_class } # "app" is a Rack::Test hook
-
-    let!(:temp_dir) { Dir.mktmpdir}
-
-    before do
+    subject(:app) { described_class.new(Config.new({})) }
+    let(:temp_dir) { Dir.mktmpdir}
+    let(:test_config) do
       config = Psych.load(spec_asset('test-director-config.yml'))
       config['dir'] = temp_dir
       config['blobstore'] = {
         'provider' => 'local',
         'options' => {'blobstore_path' => File.join(temp_dir, 'blobstore')}
       }
-      App.new(Config.load_hash(config))
+      config
     end
+
+    before { App.new(Config.load_hash(test_config)) }
 
     after { FileUtils.rm_rf(temp_dir) }
 
@@ -104,7 +104,7 @@ module Bosh::Director
           end
 
           context 'when deployments use stemcells' do
-            before { stemcells.each { |s| s.stub(:deployments).and_return([]) } }
+            before { stemcells.each { |s| allow(s).to receive(:deployments).and_return([]) } }
 
             it 'returns a list of stemcells in JSON with no existing deployments' do
               perform

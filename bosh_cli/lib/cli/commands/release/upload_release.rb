@@ -24,9 +24,6 @@ module Bosh::Cli::Command
           if release_file.nil?
             err('The information about latest generated release is missing, please provide release filename')
           end
-          unless confirmed?("Upload release `#{File.basename(release_file).make_green}' to `#{target_name.make_green}'")
-            err('Canceled upload')
-          end
         end
 
         if release_file =~ /^#{URI::regexp}$/
@@ -56,7 +53,7 @@ module Bosh::Cli::Command
         blobstore = release.blobstore
         tmpdir = Dir.mktmpdir
 
-        compiler = Bosh::Cli::ReleaseCompiler.new(manifest_path, blobstore, package_matches)
+        compiler = Bosh::Cli::ReleaseCompiler.new(manifest_path, cache_dir, blobstore, package_matches)
         need_repack = true
 
         unless compiler.exists?

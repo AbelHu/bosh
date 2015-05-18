@@ -27,7 +27,6 @@ module Bosh::Director
         @vm_model, @agent_client = vm_creator.create(new_disk_cid)
 
         begin
-          # Could raise Bosh::Clouds::NoDiskSpace because some CPIs might lazily create disks
           disk_attacher = DiskAttacher.new(@instance, @vm_model, @agent_client, @cloud, @logger)
           disk_attacher.attach
           break
@@ -87,21 +86,10 @@ module Bosh::Director
       def create(new_disk_id)
         @logger.info('Creating VM')
 
-        deployment = @instance.job.deployment
-        resource_pool = @instance.job.resource_pool
-
-        vm_model = Bosh::Director::VmCreator.create(
-          deployment.model,
-          resource_pool.stemcell.model,
-          resource_pool.cloud_properties,
-          @instance.network_settings,
-          [@instance.model.persistent_disk_cid, new_disk_id].compact,
-          resource_pool.env,
-        )
+        vm_model = new_vm_model(new_disk_id)
 
         begin
-          @instance.model.vm = vm_model
-          @instance.model.save
+          @instance.bind_to_vm_model(vm_model)
 
           agent_client = AgentClient.with_defaults(vm_model.agent_id)
           agent_client.wait_until_ready
@@ -112,6 +100,20 @@ module Bosh::Director
         end
 
         [vm_model, agent_client]
+      end
+
+      def new_vm_model(new_disk_id)
+        deployment = @instance.job.deployment
+        resource_pool = @instance.job.resource_pool
+
+        Bosh::Director::VmCreator.create(
+          deployment.model,
+          resource_pool.stemcell.model,
+          resource_pool.cloud_properties,
+          @instance.network_settings,
+          [@instance.model.persistent_disk_cid, new_disk_id].compact,
+          resource_pool.env,
+        )
       end
     end
 

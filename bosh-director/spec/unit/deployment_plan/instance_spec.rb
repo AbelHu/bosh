@@ -17,14 +17,26 @@ module Bosh::Director::DeploymentPlan
         network: net,
       })
     end
-    let(:job) { instance_double('Bosh::Director::DeploymentPlan::Job', resource_pool: resource_pool, deployment: plan, name: 'fake-job') }
-    let(:resource_pool) { instance_double('Bosh::Director::DeploymentPlan::ResourcePool', network: net) }
+    let(:job) do
+      instance_double('Bosh::Director::DeploymentPlan::Job',
+        resource_pool: resource_pool,
+        deployment: plan,
+        name: 'fake-job',
+        persistent_disk_pool: disk_pool,
+      )
+    end
+    let(:resource_pool) { instance_double('Bosh::Director::DeploymentPlan::ResourcePool', network: net, name: 'fake-resource-pool') }
+    let(:disk_pool) { nil }
     let(:net) { instance_double('Bosh::Director::DeploymentPlan::Network', name: 'net_a') }
     let(:vm) { Vm.new(resource_pool) }
     before do
       allow(resource_pool).to receive(:allocate_vm).and_return(vm)
+      allow(resource_pool).to receive(:add_allocated_vm).and_return(vm)
       allow(job).to receive(:instance_state).with(0).and_return('started')
     end
+
+    let(:instance_model) { Bosh::Director::Models::Instance.make }
+    let(:vm_model) { Bosh::Director::Models::Vm.make }
 
     describe '#network_settings' do
       let(:job) do
@@ -69,7 +81,6 @@ module Bosh::Director::DeploymentPlan
           network: network,
         })
       end
-      before { allow(resource_pool).to receive(:add_allocated_vm).and_return(vm) }
 
       let(:vm) do
         instance_double('Bosh::Director::DeploymentPlan::Vm', {
@@ -273,7 +284,7 @@ module Bosh::Director::DeploymentPlan
         instance.add_network_reservation('net_a', old_reservation)
         instance.bind_unallocated_vm
 
-        instance.model.should_not be_nil
+        expect(instance.model).not_to be_nil
         expect(instance.vm).to eq(vm)
         expect(vm.bound_instance).to be_nil
         expect(vm.network_reservation.ip).to eq(vm_ip)
@@ -288,7 +299,7 @@ module Bosh::Director::DeploymentPlan
         instance.add_network_reservation('net_a', old_reservation)
         instance.bind_unallocated_vm
 
-        instance.model.should_not be_nil
+        expect(instance.model).not_to be_nil
         expect(instance.vm).to eq(vm)
         expect(vm.bound_instance).to eq(instance)
         expect(vm.network_reservation).to be_nil
@@ -353,7 +364,6 @@ module Bosh::Director::DeploymentPlan
       end
 
       it "adds the existing VM as allocated on the job's resource pool" do
-        vm_model = Bosh::Director::Models::Vm.make
         instance_model.vm = vm_model
 
         state = {}
@@ -403,7 +413,6 @@ module Bosh::Director::DeploymentPlan
       before { allow(agent_client).to receive(:apply) }
 
       before { allow(Bosh::Director::AgentClient).to receive(:with_defaults).with(vm_model.agent_id).and_return(agent_client) }
-      let(:vm_model) { Bosh::Director::Models::Vm.make }
 
       before do
         # Create a new VM
@@ -540,7 +549,6 @@ module Bosh::Director::DeploymentPlan
       before { allow(agent_client).to receive(:apply) }
 
       before { allow(Bosh::Director::AgentClient).to receive(:with_defaults).with(vm_model.agent_id).and_return(agent_client) }
-      let(:vm_model) { Bosh::Director::Models::Vm.make }
 
       before { allow(plan).to receive(:network).with('fake-network').and_return(network) }
 
@@ -722,7 +730,6 @@ module Bosh::Director::DeploymentPlan
           allow(Bosh::Director::AgentClient).to receive(:with_defaults).with(vm_model.agent_id).and_return(agent_client)
           allow(agent_client).to receive(:apply)
         end
-        let(:vm_model) { Bosh::Director::Models::Vm.make }
 
         before do
           # Create a new VM
@@ -794,6 +801,28 @@ module Bosh::Director::DeploymentPlan
         # change DB to NOT match real instance/vm
         instance_model.vm.update(env: {'key' => 'value2'})
         expect(instance.resource_pool_changed?).to be(true)
+      end
+    end
+
+    describe 'persistent_disk_changed?' do
+      context 'when disk pool with size 0 is used' do
+        let(:disk_pool) do
+          Bosh::Director::DeploymentPlan::DiskPool.parse(
+            {
+              'name' => 'fake-name',
+              'disk_size' => 0,
+              'cloud_properties' => {'type' => 'fake-type'},
+            }
+          )
+        end
+
+        before { instance.bind_existing_instance(instance_model, {}, {}) }
+
+        context 'when disk_size is still 0' do
+          it 'returns false' do
+            expect(instance.persistent_disk_changed?).to be(false)
+          end
+        end
       end
     end
 
@@ -880,6 +909,19 @@ module Bosh::Director::DeploymentPlan
         spec = instance.spec
         expect(spec['persistent_disk']).to eq(0)
         expect(spec['persistent_disk_pool']).to eq(nil)
+      end
+    end
+
+    describe '#bind_to_vm_model' do
+      before do
+        instance.bind_unallocated_vm
+        instance.bind_to_vm_model(vm_model)
+      end
+
+      it 'updates instance model with new vm model' do
+        expect(instance.model.refresh.vm).to eq(vm_model)
+        expect(instance.vm.model).to eq(vm_model)
+        expect(instance.vm.bound_instance).to eq(instance)
       end
     end
   end

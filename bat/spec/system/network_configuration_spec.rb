@@ -23,7 +23,10 @@ describe 'network configuration' do
     let(:dns) { Resolv::DNS.new(nameserver: @env.dns_host) }
 
     it 'forward looks up instance' do
-      address = dns.getaddress("0.batlight.static.bat.#{bosh_tld}").to_s
+      address = nil
+      expect {
+        address = dns.getaddress("0.batlight.static.bat.#{bosh_tld}").to_s
+      }.not_to raise_error, 'this test tries to resolve to the public IP of director, so you need to have incoming UDP enabled for it'
       expect(address).to eq(public_ip)
     end
 
@@ -83,7 +86,7 @@ describe 'network configuration' do
       expect(bosh("deployment #{deployment.to_path}")).to succeed
       expect(bosh('deploy')).to succeed
 
-      expect(ssh(public_ip, 'vcap', '/sbin/ifconfig', ssh_options)).to include(second_static_ip)
+      expect(ssh(public_ip, 'vcap', 'PATH=/sbin:/usr/sbin:$PATH; ifconfig', ssh_options)).to include(second_static_ip)
     end
 
     it 'deploys multiple manual networks' do
@@ -96,8 +99,8 @@ describe 'network configuration' do
       expect(bosh("deployment #{deployment.to_path}")).to succeed
       expect(bosh('deploy')).to succeed
 
-      expect(ssh(public_ip, 'vcap', '/sbin/ifconfig', ssh_options)).to include(static_ips[0])
-      expect(ssh(public_ip, 'vcap', '/sbin/ifconfig', ssh_options)).to include(static_ips[1])
+      expect(ssh(public_ip, 'vcap', 'PATH=/sbin:/usr/sbin:$PATH; ifconfig', ssh_options)).to include(static_ips[0])
+      expect(ssh(public_ip, 'vcap', 'PATH=/sbin:/usr/sbin:$PATH; ifconfig', ssh_options)).to include(static_ips[1])
     end
   end
 end

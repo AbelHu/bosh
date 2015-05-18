@@ -6,9 +6,8 @@ module Bosh::Director
     describe Controllers::PackagesController do
       include Rack::Test::Methods
 
-      subject(:app) { described_class } # "app" is a Rack::Test hook
-
-      before { Api::ResourceManager.stub(:new) }
+      subject(:app) { described_class.new(Config.new({})) }
+      before { allow(Api::ResourceManager).to receive(:new) }
 
       describe 'POST', '/matches' do
         def perform

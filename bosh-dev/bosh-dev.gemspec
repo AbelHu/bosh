@@ -18,6 +18,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency 'bosh_common'
   spec.add_dependency 'bosh-core'
+  spec.add_dependency 'bosh-director'
   spec.add_dependency 'bosh-stemcell'
   spec.add_dependency 'peach'
   spec.add_dependency 'bosh_cli'
@@ -29,8 +30,11 @@ Gem::Specification.new do |spec|
   spec.add_dependency('ruby_vcloud_sdk', '=0.7.1')
 
   spec.add_development_dependency 'rake'
-  spec.add_development_dependency 'rspec'
+  spec.add_development_dependency 'rspec', '~> 3.0.0'
   spec.add_development_dependency 'rspec-its'
   spec.add_development_dependency 'fakefs'
   spec.add_development_dependency 'rugged'
+  spec.add_development_dependency 'webmock'
+  spec.add_development_dependency 'dogapi'
+  spec.add_development_dependency 'timecop'
 end

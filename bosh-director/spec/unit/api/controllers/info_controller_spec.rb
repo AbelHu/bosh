@@ -6,58 +6,65 @@ module Bosh::Director
     describe Controllers::InfoController do
       include Rack::Test::Methods
 
-      let!(:temp_dir) { Dir.mktmpdir}
+      subject(:app) { described_class.new(Config.new(test_config)) }
 
-      before do
+      let(:temp_dir) { Dir.mktmpdir}
+      let(:base_config) do
         blobstore_dir = File.join(temp_dir, 'blobstore')
         FileUtils.mkdir_p(blobstore_dir)
 
-        test_config = Psych.load(spec_asset('test-director-config.yml'))
-        test_config['dir'] = temp_dir
-        test_config['blobstore'] = {
-            'provider' => 'local',
-            'options' => {'blobstore_path' => blobstore_dir}
+        config = Psych.load(spec_asset('test-director-config.yml'))
+        config['dir'] = temp_dir
+        config['blobstore'] = {
+          'provider' => 'local',
+          'options' => {'blobstore_path' => blobstore_dir}
         }
-        test_config['snapshots']['enabled'] = true
-        Config.configure(test_config)
-        @director_app = App.new(Config.load_hash(test_config))
+        config['snapshots']['enabled'] = true
+        config
       end
+      let(:test_config) { base_config }
 
-      after do
-        FileUtils.rm_rf(temp_dir)
-      end
+      before { App.new(Config.load_hash(test_config)) }
 
-      def app
-        @rack_app ||= described_class.new
-      end
-
-      def login_as_admin
-        basic_authorize 'admin', 'admin'
-      end
-
-      def login_as(username, password)
-        basic_authorize username, password
-      end
-
-      it 'requires auth' do
-        get '/'
-        last_response.status.should == 401
-      end
+      after { FileUtils.rm_rf(temp_dir) }
 
       it 'sets the date header' do
         get '/'
-        last_response.headers['Date'].should_not be_nil
+        expect(last_response.headers['Date']).not_to be_nil
+      end
+
+      it 'allows unauthenticated access' do
+        get '/'
+        expect(last_response.status).to eq(200)
+      end
+
+      context 'when HTTP auth is provided' do
+        it 'allows valid credentials' do
+          basic_authorize 'admin', 'admin'
+          get '/'
+          expect(last_response.status).to eq(200)
+          info_response = Yajl::Parser.parse(last_response.body)
+          expect(info_response['user']).to eq('admin')
+        end
+
+        it 'allows invalid credentials' do
+          basic_authorize 'notadmin', 'admin'
+          get '/'
+          expect(last_response.status).to eq(200)
+          info_response = Yajl::Parser.parse(last_response.body)
+          expect(info_response['user']).to eq(nil)
+        end
       end
 
       it 'allows Basic HTTP Auth with admin/admin credentials for ' +
              "test purposes (even though user doesn't exist)" do
         basic_authorize 'admin', 'admin'
         get '/'
-        last_response.status.should == 200
+        expect(last_response.status).to eq(200)
       end
 
       it 'responds with expected json' do
-        login_as_admin
+        basic_authorize 'admin', 'admin'
 
         get '/'
 
@@ -67,6 +74,10 @@ module Bosh::Director
           'uuid' => Config.uuid,
           'user' => 'admin',
           'cpi' => 'dummy',
+          'user_authentication' => {
+            'type' => 'basic',
+            'options' => {},
+          },
           'features' => {
             'dns' => {
               'status' => true,
@@ -82,7 +93,42 @@ module Bosh::Director
           }
         }
 
-        Yajl::Parser.parse(last_response.body).should == expected
+        expect(Yajl::Parser.parse(last_response.body)).to eq(expected)
+      end
+
+      context 'when configured with an external CPI' do
+        let(:test_config) do
+          cfg = base_config
+          cfg['cloud'].delete('plugin')
+          cfg['cloud']['provider'] = {
+            'name' => 'test-cpi',
+            'path' => '/path/to/test-cpi/bin/cpi'
+          }
+          cfg
+        end
+
+        it 'reports the cpi to be the external cpi executable path' do
+          get '/'
+          expect(Yajl::Parser.parse(last_response.body)['cpi']).to eq('test-cpi')
+        end
+      end
+
+      context 'when configured to use UAA for user management' do
+        let(:test_config) { base_config.merge(
+          'user_management' => {'provider' => 'uaa', 'options' => {
+            'url' => 'http://localhost:8080/uaa',
+            'key' => 'super secret!',
+          }}
+        ) }
+
+        it 'reports that uaa is the authentication method and excludes the secret key' do
+          get '/'
+          response_hash = Yajl::Parser.parse(last_response.body)
+          expect(response_hash['user_authentication']).to eq(
+              'type' => 'uaa',
+              'options' => {'url' => 'http://localhost:8080/uaa'}
+            )
+        end
       end
     end
   end

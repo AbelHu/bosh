@@ -24,15 +24,15 @@ module Bosh::Cli
       banner = "Usage: bosh [<options>] <command> [<args>]"
       @option_parser = OptionParser.new(banner)
 
-      Config.colorize = true
+      Config.colorize = nil
       Config.output ||= STDOUT
+
+      parse_global_options
     end
 
     # Find and run CLI command
     # @return [void]
     def run
-      parse_global_options
-
       Config.interactive = !@options[:non_interactive]
       Config.poll_interval = @options[:poll_interval]
 

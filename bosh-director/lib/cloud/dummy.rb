@@ -73,7 +73,7 @@ module Bosh
 
       def delete_vm(vm_name)
         agent_pid = vm_name.to_i
-        Process.kill('INT', agent_pid)
+        Process.kill('KILL', agent_pid)
       # rubocop:disable HandleExceptions
       rescue Errno::ESRCH
       # rubocop:enable HandleExceptions
@@ -163,7 +163,7 @@ module Bosh
       def kill_agents
         vm_cids.each do |agent_pid|
           begin
-            Process.kill('INT', agent_pid.to_i)
+            Process.kill('KILL', agent_pid.to_i)
           # rubocop:disable HandleExceptions
           rescue Errno::ESRCH
           # rubocop:enable HandleExceptions
@@ -229,8 +229,25 @@ module Bosh
       end
 
       def agent_cmd(agent_id)
+        agent_config_file = File.join(agent_base_dir(agent_id), 'agent.json')
+
+        agent_config = {
+          'Infrastructure' => {
+            'Settings' => {
+              'Sources' => [{
+                'Type' => 'File',
+                'SettingsPath' => agent_settings_file(agent_id)
+              }],
+              'UseRegistry' => true
+            }
+          }
+        }
+
+        File.write(agent_config_file, JSON.generate(agent_config))
+
         go_agent_exe = File.expand_path('../../../../go/src/github.com/cloudfoundry/bosh-agent/out/bosh-agent', __FILE__)
-        %W[#{go_agent_exe} -b #{agent_base_dir(agent_id)} -I dummy -P dummy -M dummy-nats]
+
+        %W[#{go_agent_exe} -b #{agent_base_dir(agent_id)} -P dummy -M dummy-nats -C #{agent_config_file}]
       end
 
       def read_agent_settings(agent_id)
