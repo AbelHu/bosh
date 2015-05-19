@@ -31,7 +31,6 @@ cloud:
   properties:
     azure:
       environment: AzureCloud
-      api_version: 2015-05-01-preview
       subscription_id: Your subscription id
       storage_account_name: Your storage account name
       storage_access_key: The access key of your storage account

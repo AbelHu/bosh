@@ -26,7 +26,6 @@ module Bosh::Deployer::InfrastructureDefaults
       'properties' => {
         'azure' => {
           'environment' => 'AzureCloud',
-          'api_version' => '2015-05-01-preview',
           'subscription_id' => nil,
           'storage_account_name' => nil,
           'storage_access_key' => nil,
