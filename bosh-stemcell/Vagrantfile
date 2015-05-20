@@ -94,6 +94,7 @@ EOS
         git submodule foreach 'git checkout .'
       )
       chown -R ubuntu:ubuntu /bosh
+      ( apt-get install -y virtualbox cmake pkg-config )
       ( cd /bosh && bundle install --local )
     BASH
   end
