@@ -9,9 +9,11 @@ sudo npm install retry -g
 sudo npm install async -g
 sudo npm install azure-common -g
 
+echo "Installing Ruby components"
 cd ..
 bundle install --local
 
+echo "Installing Azure bosh client"
 cd bosh_common
 gem build bosh_common.gemspec
 sudo gem install bosh_common-1.2807.0.gem --no-ri --no-rdoc
@@ -67,3 +69,8 @@ sudo gem install bosh_azure_cpi-1.2807.0.gem --no-ri --no-rdoc
 cd ../bosh_cli_plugin_micro
 gem build bosh_cli_plugin_micro.gemspec
 sudo gem install bosh_cli_plugin_micro-1.2807.0.gem --no-ri --no-rdoc
+
+echo "Downloading Azure stemcell"
+wget http://cloudfoundry.blob.core.windows.net/stemcell/stemcell.tgz -O ~/stemcell.tgz
+
+echo "Finish"

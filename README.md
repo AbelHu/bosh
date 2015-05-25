@@ -34,7 +34,7 @@ cd bosh/deploy_for_azure
 ./install.sh
 ```
 
-You can download stemcell for Azure from http://cloudfoundry.blob.core.windows.net/stemcell/stemcell.tgz
+[Stemcell for Azure](http://cloudfoundry.blob.core.windows.net/stemcell/stemcell.tgz) is downloaded automatically in install.sh.
 
 To deploy MicroBosh, you can reference deploy_for_azure/config/micro_bosh.yml.
 
