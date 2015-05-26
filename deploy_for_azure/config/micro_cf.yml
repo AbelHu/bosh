@@ -5,7 +5,7 @@ name: cf
 director_uuid: bfb078f7-99bc-4199-aecc-9fbb99f526b3 # Replace it with the UUID of your MicroBosh
 
 releases:
-- {name: cf, version: latest}
+- {name: cf, version: 208}
 
 networks:
 - name: cf_private

@@ -38,7 +38,7 @@ cd bosh/deploy_for_azure
 
 To deploy MicroBosh, you can reference deploy_for_azure/config/micro_bosh.yml.
 
-To deploy single VM cloud foundry, you can reference deploy_for_azure/config/micro_cf.yml.
+To deploy single VM cloud foundry, you can reference deploy_for_azure/config/micro_cf.yml. Currently only cf-release version <= 208 can be deployed because the latest code is not merged.
 
 ## File a bug
 
