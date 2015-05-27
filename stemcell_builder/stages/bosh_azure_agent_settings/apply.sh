@@ -16,7 +16,7 @@ cat > $chroot/var/vcap/bosh/agent.json <<JSON
     "Settings": {
       "Sources": [
         {
-          "Type": "FILE",
+          "Type": "File",
           "MetaDataPath": "",
           "UserDataPath": "/var/lib/waagent/CustomData",
           "SettingsPath": ""
