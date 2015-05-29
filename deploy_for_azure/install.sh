@@ -71,6 +71,7 @@ gem build bosh_cli_plugin_micro.gemspec
 sudo gem install bosh_cli_plugin_micro-1.2807.0.gem --no-ri --no-rdoc
 
 echo "Downloading Azure stemcell"
-wget http://cloudfoundry.blob.core.windows.net/stemcell/stemcell.tgz -O ~/stemcell.tgz
+cd /home/*
+wget http://cloudfoundry.blob.core.windows.net/stemcell/stemcell.tgz -O stemcell.tgz
 
 echo "Finish"
