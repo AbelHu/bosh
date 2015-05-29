@@ -190,13 +190,14 @@ module Bosh::AwsCloud
     # @return [String] created EBS volume id
     def create_disk(size, cloud_properties, instance_id = nil)
       with_thread_name("create_disk(#{size}, #{instance_id})") do
-        validate_disk_size(size)
+        type = validate_disk_type(cloud_properties.fetch('type', 'standard'))
+        validate_disk_size(type, size)
 
         # if the disk is created for an instance, use the same availability zone as they must match
         volume = @ec2.volumes.create(
           size: (size / 1024.0).ceil,
           availability_zone: @az_selector.select_availability_zone(instance_id),
-          volume_type: validate_disk_type(cloud_properties.fetch('type', 'standard')),
+          volume_type: type,
           encrypted: cloud_properties.fetch('encrypted', false)
         )
 
@@ -207,16 +208,20 @@ module Bosh::AwsCloud
       end
     end
 
-    def validate_disk_size(size)
+    def validate_disk_size(type, size)
       raise ArgumentError, 'disk size needs to be an integer' unless size.kind_of?(Integer)
 
       cloud_error('AWS CPI minimum disk size is 1 GiB') if size < 1024
-      cloud_error('AWS CPI maximum disk size is 1 TiB') if size > 1024 * 1000
+      if type == 'standard'
+        cloud_error('AWS CPI maximum disk size is 1 TiB') if size > 1024 * 1000
+      else
+        cloud_error('AWS CPI maximum disk size is 16 TiB') if size > 1024 * 16000
+      end
     end
 
     def validate_disk_type(type)
-      unless %w[gp2 standard].include?(type)
-        cloud_error('AWS CPI supports only gp2 or standard disk type')
+      unless %w[gp2 standard io1].include?(type)
+        cloud_error('AWS CPI supports only gp2, io1, or standard disk type')
       end
       type
     end
@@ -249,7 +254,7 @@ module Bosh::AwsCloud
             volume.delete
           rescue AWS::EC2::Errors::InvalidVolume::NotFound => e
             logger.warn("Failed to delete disk '#{disk_id}' because it was not found: #{e.inspect}")
-            raise Bosh::Clouds::DiskNotFound, "Disk '#{disk_id}' not found"
+            raise Bosh::Clouds::DiskNotFound.new(false), "Disk '#{disk_id}' not found"
           end
 
           true # return true to only retry on Exceptions
@@ -549,7 +554,10 @@ module Bosh::AwsCloud
 
     def initialize_aws
       @ec2 = AWS::EC2.new(@aws_params)
-      @region = @ec2.regions[aws_region]
+      # @ec2.regions[] does not properly set the endpoint on the region (bug in /aws/ec2/region_collection.rb)
+      # It just returns a Region object with nothing set but the name.
+      # As a workaround use the 'each' method, which is implemented correctly
+      @region = @ec2.regions.select {|r| r.name == aws_region}.first
       @az_selector = AvailabilityZoneSelector.new(@region, aws_properties['default_availability_zone'])
     end
 

@@ -9,13 +9,15 @@ describe Bosh::AwsCloud::Cloud do
     @access_key_id     = ENV['BOSH_AWS_ACCESS_KEY_ID']       || raise("Missing BOSH_AWS_ACCESS_KEY_ID")
     @secret_access_key = ENV['BOSH_AWS_SECRET_ACCESS_KEY']   || raise("Missing BOSH_AWS_SECRET_ACCESS_KEY")
     @subnet_id         = ENV['BOSH_AWS_SUBNET_ID']           || raise("Missing BOSH_AWS_SUBNET_ID")
+    @subnet_zone       = ENV['BOSH_AWS_SUBNET_ZONE']         || raise("Missing BOSH_AWS_SUBNET_ZONE")
     @manual_ip         = ENV['BOSH_AWS_LIFECYCLE_MANUAL_IP'] || raise("Missing BOSH_AWS_LIFECYCLE_MANUAL_IP")
   end
 
-  let(:instance_type_with_ephemeral) { ENV.fetch('BOSH_AWS_INSTANCE_TYPE', 'm3.medium') }
+  let(:instance_type_with_ephemeral)    { ENV.fetch('BOSH_AWS_INSTANCE_TYPE', 'm3.medium') }
   let(:instance_type_without_ephemeral) { ENV.fetch('BOSH_AWS_INSTANCE_TYPE_WITHOUT_EPHEMERAL', 't2.small') }
+  let(:default_key_name)                { ENV.fetch('BOSH_AWS_DEFAULT_KEY_NAME', 'bosh')}
+  let(:ami)                             { ENV.fetch('BOSH_AWS_IMAGE_ID', 'ami-b66ed3de') }
   let(:instance_type) { instance_type_with_ephemeral }
-  let(:ami) { ENV.fetch('BOSH_AWS_IMAGE_ID', 'ami-b66ed3de') }
   let(:vm_metadata) { { deployment: 'deployment', job: 'cpi_spec', index: '0', delete_me: 'please' } }
   let(:disks) { [] }
   let(:network_spec) { {} }
@@ -30,11 +32,11 @@ describe Bosh::AwsCloud::Cloud do
     described_class.new(
       'aws' => {
         'region' => 'us-east-1',
-        'default_key_name' => 'bosh',
+        'default_key_name' => default_key_name,
         'fast_path_delete' => 'yes',
         'access_key_id' => @access_key_id,
         'secret_access_key' => @secret_access_key,
-        'default_availability_zone' => 'us-east-1a'
+        'default_availability_zone' => @subnet_zone
       },
       'registry' => {
         'endpoint' => 'fake',

@@ -1,7 +1,10 @@
 [submodule "go/src/github.com/cloudfoundry/bosh-agent"]
 	path = go/src/github.com/cloudfoundry/bosh-agent
 	url = https://github.com/AbelHu/bosh-agent.git
-        branch = external_azure_cpi
+	branch = external_azure_cpi
 [submodule "spec/assets/uaa"]
 	path = spec/assets/uaa
 	url = https://github.com/cloudfoundry/uaa.git
+[submodule "bat"]
+	path = bat
+	url = https://github.com/cloudfoundry/bosh-acceptance-tests.git
