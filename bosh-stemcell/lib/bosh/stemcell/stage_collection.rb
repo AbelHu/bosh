@@ -199,7 +199,7 @@ module Bosh::Stemcell
     def azure_stages
       [
         # Misc
-        :system_network,
+        :system_azure_network,
         :system_azure_modules,
         :system_azure_wala,
         :system_parameters,

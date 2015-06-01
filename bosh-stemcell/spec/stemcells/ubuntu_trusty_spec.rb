@@ -38,15 +38,30 @@ describe 'Ubuntu 14.04 stemcell', stemcell_image: true do
     end
   end
 
-  context 'installed by system-aws-network', {
+  context 'installed by system-network', {
     exclude_on_vsphere: true,
     exclude_on_vcloud: true,
     exclude_on_warden: true,
+    exclude_on_azure: true,
   } do
     describe file('/etc/network/interfaces') do
       it { should be_file }
       it { should contain 'auto lo' }
       it { should contain 'iface lo inet loopback' }
+    end
+  end
+
+  context 'installed by system-azure-network', {
+    exclude_on_aws: true,
+    exclude_on_vcloud: true,
+    exclude_on_vsphere: true,
+    exclude_on_warden: true,
+    exclude_on_openstack: true,
+  } do
+    describe file('/etc/network/interfaces') do
+      it { should be_file }
+      it { should contain 'auto eth0' }
+      it { should contain 'iface eth0 inet dhcp' }
     end
   end
 
