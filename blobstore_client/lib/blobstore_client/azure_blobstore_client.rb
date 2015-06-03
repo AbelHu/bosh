@@ -46,7 +46,10 @@ module Bosh
         @container_name = @options[:container_name]
 
         Azure.configure do |config|
-          config.storage_blob_host    = AZURE_ENVIRONMENTS[@options[:environment]]['managementEndpointUrl'].sub("//management.","//#{@options[:storage_account_name]}.blob.")
+          config.storage_blob_host    = AZURE_ENVIRONMENTS[@options[:environment]]['managementEndpointUrl'].sub(
+                                          "//management.",
+                                          "//#{@options[:storage_account_name]}.blob."
+                                        )
           config.storage_account_name = @options[:storage_account_name]
           config.storage_access_key   = @options[:storage_access_key]
         end
