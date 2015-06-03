@@ -35,6 +35,8 @@ module Bosh::Registry
         }
       }
 
+      API_VERSION = '2015-05-01-preview'
+
       def initialize(cloud_config)
         validate_options(cloud_config)
 
@@ -47,7 +49,6 @@ module Bosh::Registry
         unless cloud_config.has_key?("azure") &&
             cloud_config["azure"].is_a?(Hash) &&
             cloud_config["azure"]["environment"] &&
-            cloud_config["azure"]["api_version"] &&
             cloud_config["azure"]["subscription_id"] &&
             cloud_config["azure"]["client_id"] &&
             cloud_config["azure"]["client_secret"] &&
@@ -88,7 +89,7 @@ module Bosh::Registry
         if @token.nil? || (Time.at(@token["expires_on"].to_i) - Time.now) <= 0 || force_refresh
           @logger.info("Trying to get/refresh Azure authentication token")
           params = {}
-          params["api-version"] = @azure_properties["api_version"]
+          params["api-version"] = API_VERSION
 
           uri = URI(AZURE_ENVIRONMENTS[@azure_properties['environment']]['activeDirectoryEndpointUrl'] + "/" + @azure_properties["tenant_id"] + "/oauth2/token")
           uri.query = URI.encode_www_form(params)
@@ -115,7 +116,7 @@ module Bosh::Registry
       end
 
       def azure_rest_api(url)
-        uri = URI(AZURE_ENVIRONMENTS[@azure_properties['environment']]['resourceManagerEndpointUrl'] + url + "?api-version=#{@azure_properties["api_version"]}")
+        uri = URI(AZURE_ENVIRONMENTS[@azure_properties['environment']]['resourceManagerEndpointUrl'] + url + "?api-version=#{API_VERSION}")
         @logger.info("Trying to call #{uri}")
 
         retried = false

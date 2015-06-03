@@ -59,15 +59,14 @@ cloud:
     connection_options: <%= JSON.generate(connection_options) %>
     <% end %>
 <% end %>
-<% if_p('azure.environment', 'azure.api_version',
+<% if_p('azure.environment',
         'azure.subscription_id', 'azure.tenant_id',
-        'azure.client_id', 'azure.client_secret') do |environment, api_version,
+        'azure.client_id', 'azure.client_secret') do |environment,
                                                       subscription_id, tenant_id,
                                                       client_id, client_secret| %>
   plugin: azure <% plugin = 'azure' %>
   azure:
     environment: <%= environment %>
-    api_version: <%= api_version %>
     subscription_id: <%= subscription_id %>
     tenant_id: <%= tenant_id %>
     client_id: <%= client_id %>

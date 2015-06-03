@@ -387,13 +387,13 @@ cloud:
 
   <% end %>
 
-<% if_p('azure.environment', 'azure.api_version',
+<% if_p('azure.environment',
         'azure.subscription_id', 'azure.storage_account_name',
         'azure.storage_access_key', 'azure.resource_group_name',
         'azure.tenant_id', 'azure.client_id',
         'azure.client_secret', 'registry.address',
         'registry.http.port', 'registry.http.user',
-        'registry.http.password') do |environment, api_version,
+        'registry.http.password') do |environment,
                                           subscription_id, storage_account_name,
                                           storage_access_key, resource_group_name,
                                           tenant_id, client_id,
@@ -404,7 +404,6 @@ cloud:
   properties:
     azure:
       environment: <%= environment %>
-      api_version: <%= api_version %>
       subscription_id: <%= subscription_id %>
       storage_account_name: <%= storage_account_name %>
       storage_access_key: <%= storage_access_key %>
