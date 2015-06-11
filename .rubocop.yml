@@ -13,7 +13,6 @@ AllCops:
     - bosh_openstack_cpi/**/*
     - bosh-registry/**/*
     - bosh_vsphere_cpi/**/*
-    - bosh_azure_cpi/**/*
     - bosh-monitor/**/*
     - bosh-release/**/*
     - release/**/*

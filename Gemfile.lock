@@ -57,7 +57,6 @@ PATH
       bosh-director-core (~> 1.2977.0)
       bosh-template (~> 1.2977.0)
       bosh_aws_cpi (~> 1.2977.0)
-      bosh_azure_cpi (~> 1.2977.0)
       bosh_common (~> 1.2977.0)
       bosh_cpi (~> 1.2977.0)
       bosh_openstack_cpi (~> 1.2977.0)
@@ -153,18 +152,6 @@ PATH
       yajl-ruby (>= 0.8.2)
 
 PATH
-  remote: bosh_azure_cpi
-  specs:
-    bosh_azure_cpi (1.2977.0)
-      azure (~> 0.6.5)
-      bosh-registry (~> 1.2977.0)
-      bosh_common (~> 1.2977.0)
-      bosh_cpi (~> 1.2977.0)
-      httpclient (= 2.4.0)
-      nokogiri (~> 1.5)
-      vhd (~> 0.0.4)
-
-PATH
   remote: bosh_cli
   specs:
     bosh_cli (1.2977.0)
@@ -204,7 +191,6 @@ PATH
       bosh-registry (~> 1.2977.0)
       bosh-stemcell (~> 1.2977.0)
       bosh_aws_cpi (~> 1.2977.0)
-      bosh_azure_cpi (~> 1.2977.0)
       bosh_cli (~> 1.2977.0)
       bosh_cpi (~> 1.2977.0)
       bosh_openstack_cpi (~> 1.2977.0)
@@ -278,7 +264,6 @@ GEM
       uuid (~> 2.0)
     backports (3.6.4)
     bcrypt-ruby (3.0.1)
-    bit-struct (0.15.0)
     blue-shell (0.3.0)
       rspec
     bosh_vcloud_cpi (0.7.3)
@@ -542,8 +527,6 @@ GEM
     vcr (2.9.3)
     vegas (0.1.11)
       rack (>= 1.0.0)
-    vhd (0.0.4)
-      bit-struct
     webmock (1.20.4)
       addressable (>= 2.3.6)
       crack (>= 0.3.2)
@@ -566,7 +549,6 @@ DEPENDENCIES
   bosh-stemcell!
   bosh-template!
   bosh_aws_cpi!
-  bosh_azure_cpi!
   bosh_cli!
   bosh_cli_plugin_aws!
   bosh_cli_plugin_micro!

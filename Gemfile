@@ -20,7 +20,6 @@ gem 'bosh-monitor', path: 'bosh-monitor'
 gem 'bosh-release', path: 'bosh-release'
 gem 'bosh-template', path: 'bosh-template'
 gem 'simple_blobstore_server', path: 'simple_blobstore_server'
-gem 'bosh_azure_cpi', path: 'bosh_azure_cpi'
 
 gem 'rake', '~>10.0'
 

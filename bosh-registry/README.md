@@ -84,12 +84,16 @@ These are the credentials to connect to OpenStack services:
 
 These are the credentials to connect to Azure services:
 
-* `management_endpoint` (required)
-  https://management.core.windows.net or https://management.core.chinacloudapi.cn
+* `environment` (required)
+  The environment for Azure Management Service: AzureCloud or AzureChinaCloud
 * `subscription_id` (required)
-  Azure Subscriptionid
-* `management_certificate` (required)
-  The content of Azure management certificate *.pem
+  Azure Subscription Id
+* `tenant_id` (required)
+  The tenant id for your service principal
+* `client_id` (required)
+  The client id for your service principal
+* `client_secret` (required)
+  The client secret for your service principal
 
 ## Example
 
