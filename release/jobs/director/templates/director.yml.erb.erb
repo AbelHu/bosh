@@ -387,19 +387,14 @@ cloud:
 
   <% end %>
 
-<% if_p('azure.environment',
-        'azure.subscription_id', 'azure.storage_account_name',
-        'azure.storage_access_key', 'azure.resource_group_name',
-        'azure.tenant_id', 'azure.client_id',
-        'azure.client_secret', 'registry.address',
-        'registry.http.port', 'registry.http.user',
-        'registry.http.password') do |environment,
-                                          subscription_id, storage_account_name,
-                                          storage_access_key, resource_group_name,
-                                          tenant_id, client_id,
-                                          client_secret, reg_address,
-                                          reg_port, reg_user,
-                                          reg_password| %>
+<% if_p('azure.environment', 'azure.subscription_id', 'azure.storage_account_name',
+        'azure.storage_access_key', 'azure.resource_group_name', 'azure.tenant_id',
+        'azure.client_id', 'azure.client_secret', 'azure.ssh_certificate',
+        'registry.address', 'registry.http.port', 'registry.http.user',
+        'registry.http.password') do |environment, subscription_id, storage_account_name,
+                                          storage_access_key, resource_group_name, tenant_id,
+                                          client_id, client_secret, ssh_certificate,
+                                          reg_address, reg_port, reg_user, reg_password| %>
   plugin: azure <% plugin = "azure" %>
   properties:
     azure:
@@ -411,17 +406,12 @@ cloud:
       tenant_id: <%= tenant_id %>
       client_id: <%= client_id %>
       client_secret: <%= client_secret %>
+      ssh_certificate: <%= ssh_certificate %>
       <% if_p('azure.container_name') do |container_name| %>
       container_name: <%= container_name %>
       <% end %>
       <% if_p('azure.ssh_user') do |ssh_user| %>
       ssh_user: <%= ssh_user %>
-      <% end %>
-      <% if_p('azure.ssh_certificate') do |ssh_certificate| %>
-      ssh_certificate: <%= JSON.dump(ssh_certificate) %>
-      <% end %>
-      <% if_p('azure.ssh_private_key') do |ssh_private_key| %>
-      ssh_private_key: <%= JSON.dump(ssh_private_key) %>
       <% end %>
       <% if_p('azure.wala_lib_path') do |wala_lib_path| %>
       wala_lib_path: <%= wala_lib_path %>
