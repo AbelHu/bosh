@@ -25,7 +25,7 @@ export BAT_DNS_HOST=
 # the full path to the private key for ssh into the bosh instances
 export BOSH_KEY_PATH=
 
-# the name of infrastructure that is used by bosh deployment. Examples: aws, vsphere, openstack, warden.
+# the name of infrastructure that is used by bosh deployment. Examples: aws, vsphere, openstack, warden, azure.
 export BAT_INFRASTRUCTURE=
 
 # the type of networking being used: `dynamic` or `manual`.
@@ -157,6 +157,68 @@ properties:
     static: ['192.168.79.60 - 192.168.79.70']
     gateway: 192.168.79.1
     vlan: Network_Name # vSphere network name
+```
+
+
+On Azure with Azure-provided DHCP:
+
+```yaml
+---
+cpi: azure
+properties:
+  uuid: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx # BAT_DIRECTOR UUID
+  stemcell:
+    name: bosh-azure-hyperv-ubuntu
+    version: latest
+  vip: 0.0.0.43 # Reserved IP assigned to the bat-release job vm ('static' network), for ssh testing
+  pool_size: 1
+  instances: 1
+  networks:
+  - name: default
+    type: dynamic
+    cloud_properties:
+      virtual_network_name: xxx
+      subnet_name: xxx
+      tcp_endpoints:
+      - "22:22"
+      - "80:80"
+      - "443:443"
+      - "4222:4222"
+      - "4443:4443"
+  key_name: bosh # (optional) SSH keypair name, overrides the director's default_key_name setting
+```
+
+On Azure with VNET networking:
+
+```yaml
+---
+cpi: azure
+properties:
+  uuid: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx # BAT_DIRECTOR UUID
+  stemcell:
+    name: bosh-azure-hyperv-ubuntu
+    version: latest
+  vip: 0.0.0.43 # Reserved IP assigned to the bat-release job vm ('static' network), for ssh testing
+  pool_size: 1
+  instances: 1
+  networks:
+  - name: default
+    type: manual
+    static_ip: 10.0.1.30 # Private IP assigned to the bat-release job vm, must be in the static range
+    cloud_properties:
+      virtual_network_name: xxx
+      subnet_name: xxx
+      tcp_endpoints:
+      - "22:22"
+      - "80:80"
+      - "443:443"
+      - "4222:4222"
+      - "4443:4443"
+    cidr: 10.0.1.0/24
+    reserved: ['10.0.1.2 - 10.0.1.9']
+    static: ['10.0.1.10 - 10.0.1.30']
+    gateway: 10.0.1.1
+  key_name: bosh # (optional) SSH keypair name, overrides the director's default_key_name setting
 ```
 
 ## EC2 Networking Config
