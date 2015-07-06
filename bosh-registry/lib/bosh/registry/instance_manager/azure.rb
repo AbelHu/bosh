@@ -120,11 +120,11 @@ module Bosh::Registry
         @logger.info("Trying to call #{uri}")
 
         retried = false
-        request = Net::HTTP::Get.new(uri.request_uri)
-        request['Content-Type'] = 'application/json'
-        request['Authorization'] = 'Bearer ' + get_token(retried)
 
         begin
+          request = Net::HTTP::Get.new(uri.request_uri)
+          request['Content-Type']  = 'application/json'
+          request['Authorization'] = 'Bearer ' + get_token(retried)
           handle_response http(uri).request(request)
         rescue AzureError => e
           unless retried
