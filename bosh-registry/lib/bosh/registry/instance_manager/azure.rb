@@ -50,6 +50,7 @@ module Bosh::Registry
             cloud_config["azure"].is_a?(Hash) &&
             cloud_config["azure"]["environment"] &&
             cloud_config["azure"]["subscription_id"] &&
+            cloud_config["azure"]["resource_group_name"] &&
             cloud_config["azure"]["client_id"] &&
             cloud_config["azure"]["client_secret"] &&
             cloud_config["azure"]["tenant_id"]
@@ -58,11 +59,8 @@ module Bosh::Registry
       end
 
       # Get the list of IPs belonging to this instance
-      # instance_id: vm_name, "bosh-RESOURCE_GROUP_NAME--AGENT_ID"
       def instance_ips(instance_id)
-        index = instance_id.rindex('--') - 1
-        resource_group_name = instance_id[5..index]
-        get_ip_address(resource_group_name, instance_id)
+        get_ip_address(instance_id)
       rescue NameError => e
         raise InstanceError, "AZURE error: #{e}"
       end
@@ -116,7 +114,10 @@ module Bosh::Registry
       end
 
       def azure_rest_api(url)
-        uri = URI(AZURE_ENVIRONMENTS[@azure_properties['environment']]['resourceManagerEndpointUrl'] + url + "?api-version=#{API_VERSION}")
+        params = {}
+        params["api-version"] = API_VERSION
+        uri = URI(AZURE_ENVIRONMENTS[@azure_properties['environment']]['resourceManagerEndpointUrl'] + url)
+        uri.query = URI.encode_www_form(params)
         @logger.info("Trying to call #{uri}")
 
         retried = false
@@ -137,10 +138,10 @@ module Bosh::Registry
         end
       end
 
-      def get_ip_address(resource_group_name, vm_name)
+      def get_ip_address(vm_name)
         url = ""
         url += "/subscriptions/#{@azure_properties["subscription_id"]}"
-        url += "/resourceGroups/#{resource_group_name}"
+        url += "/resourceGroups/#{@azure_properties["resource_group_name"]}"
         url += "/providers/Microsoft.Compute"
         url += "/virtualMachines/#{vm_name}"
 
@@ -176,9 +177,6 @@ module Bosh::Registry
 
         ips
       end
-
     end
-
   end
-
 end

@@ -88,6 +88,8 @@ These are the credentials to connect to Azure services:
   The environment for Azure Management Service: AzureCloud or AzureChinaCloud
 * `subscription_id` (required)
   Azure Subscription Id
+* `resource_group_name` (required)
+  Resource group name for your resources on Azure
 * `tenant_id` (required)
   The tenant id for your service principal
 * `client_id` (required)
