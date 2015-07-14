@@ -18,3 +18,34 @@
 * Roadmap: [Pivotal Tracker](https://www.pivotaltracker.com/n/projects/956238)
 
 Cloud Foundry BOSH is an open source tool chain for release engineering, deployment and lifecycle management of large scale distributed services.
+
+## Configure Azure Environment
+
+Recommend you to reference the guide [deploy_for_azure/guide_template.doc](https://raw.githubusercontent.com/Azure/bosh/azure_cpi_external/deploy_for_azure/guide_template.doc) to use [Azure Resource Template](https://github.com/Azure/azure-quickstart-templates/tree/master/microbosh-setup) to configure your Azure account and dev machine.
+
+Or you can do it step by step by following the guide [deploy_for_azure/guide.doc](https://raw.githubusercontent.com/Azure/bosh/azure_cpi_external/deploy_for_azure/guide.doc).
+
+Currently MicroBOSH can only be deployed from a virtual machine in the same VNET on Azure.
+After you configure your azure account, please create a VM in your VNET. 
+Recommend you to use Ubuntu Server 14.04LTS. If you use other distros, please update install.sh before executing it.
+
+## Install
+
+To install the Azure BOSH CLI:
+
+```
+wget https://raw.githubusercontent.com/Azure/bosh/azure_cpi_external/deploy_for_azure/install.sh
+./install.sh
+```
+
+To deploy MicroBosh, you can reference deploy_for_azure/config/micro_bosh.yml.
+
+To deploy single VM cloud foundry, you can reference deploy_for_azure/config/micro_cf.yml.
+
+## File a bug
+
+Bugs can be filed using Github Issues.
+
+## Contributing
+
+Please read the [contributors' guide](CONTRIBUTING.md)

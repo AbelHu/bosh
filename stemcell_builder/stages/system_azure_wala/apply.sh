@@ -8,17 +8,9 @@ source $base_dir/lib/prelude_apply.bash
 packages="python python-pyasn1"
 pkg_mgr install $packages
 
-#wala_release=2.0.11
-#run_in_chroot $chroot "
-#  curl -L https://github.com/Azure/WALinuxAgent/archive/WALinuxAgent-${wala_release}.tar.gz > /tmp/WALinuxAgent-${wala_release}.tar.gz
-#  tar -C /tmp -xvf /tmp/WALinuxAgent-${wala_release}.tar.gz
-#  cd /tmp/WALinuxAgent-WALinuxAgent-${wala_release}
-#  chmod 0755 waagent
-#  cp -a waagent /usr/sbin/waagent
-#"
-
+wala_release=2.0.14
 run_in_chroot $chroot "
-  curl -L https://raw.githubusercontent.com/AbelHu/WALinuxAgent/bosh/waagent > /tmp/waagent
+  curl -L https://raw.githubusercontent.com/Azure/WALinuxAgent/WALinuxAgent-${wala_release}/waagent > /tmp/waagent
   chmod 0755 /tmp/waagent
   cp -a /tmp/waagent /usr/sbin/waagent
 "
