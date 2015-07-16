@@ -1,4 +1,6 @@
 require 'azure'
+require 'base64'
+require 'digest/md5'
 
 module Bosh
   module Blobstore
@@ -46,10 +48,6 @@ module Bosh
         @container_name = @options[:container_name]
 
         Azure.configure do |config|
-          config.storage_blob_host    = AZURE_ENVIRONMENTS[@options[:environment]]['managementEndpointUrl'].sub(
-                                          "//management.",
-                                          "//#{@options[:storage_account_name]}.blob."
-                                        )
           config.storage_account_name = @options[:storage_account_name]
           config.storage_access_key   = @options[:storage_access_key]
         end
@@ -71,8 +69,25 @@ module Bosh
 
         raise BlobstoreError, "object id #{id} is already in use" if object_exists?(id)
 
-        content = file.read
-        @azure_blob_service.create_block_blob(container_name, id, content)
+        block_list = []
+        counter    = 1
+
+        open(file, 'rb') do |f|
+          f.each_chunk {|chunk|
+            block_id = counter.to_s.rjust(5, '0')
+            block_list << [block_id, :uncommitted]
+
+            options = {
+              :content_md5 => Base64.strict_encode64(Digest::MD5.digest(chunk)),
+              :timeout     => 300 # seconds
+            }
+
+            md5 = @azure_blob_service.create_blob_block(container_name, id, block_id, chunk, options)
+            counter += 1
+          }
+        end
+
+        @azure_blob_service.commit_blob_blocks(container_name, id, block_list)
 
         id
       rescue Azure::Core::Error => e
@@ -82,14 +97,12 @@ module Bosh
       def get_file(id, file)
         blob, content = @azure_blob_service.get_blob(container_name, id)
         file.write(content)
-
       rescue Azure::Core::Error => e
         raise BlobstoreError, "Failed to find object '#{id}', Azure response error: #{e.description}"
       end
 
       def delete_object(id)
         @azure_blob_service.delete_blob(container_name, id)
-
       rescue Azure::Core::Error => e
         raise BlobstoreError, "Failed to delete object '#{id}', Azure response error: #{e.description}"
       end
@@ -97,11 +110,15 @@ module Bosh
       def object_exists?(id)
         result = @azure_blob_service.get_blob_properties(container_name, id)
         true
-
       rescue Azure::Core::Error => e
         false
       end
+    end
 
+    class ::File
+      def each_chunk(chunk_size = 2* 1024 * 1024)
+        yield read(chunk_size) until eof?
+      end
     end
   end
 end
