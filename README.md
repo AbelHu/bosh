@@ -21,26 +21,32 @@ Cloud Foundry BOSH is an open source tool chain for release engineering, deploym
 
 ## Configure Azure Environment
 
-Recommend you to reference the guide [deploy_for_azure/guide_template.doc](https://raw.githubusercontent.com/Azure/bosh/azure_cpi_external/deploy_for_azure/guide_template.doc) to use [Azure Resource Template](https://github.com/Azure/azure-quickstart-templates/tree/master/microbosh-setup) to configure your Azure account and dev machine.
+Recommend you to reference the guide [guide_template.doc](http://cloudfoundry.blob.core.windows.net/misc/beta-guide-template.doc) to use [Azure Resource Template](https://github.com/Azure/azure-quickstart-templates/tree/master/microbosh-setup) to configure your Azure account and dev machine.
 
-Or you can do it step by step by following the guide [deploy_for_azure/guide.doc](https://raw.githubusercontent.com/Azure/bosh/azure_cpi_external/deploy_for_azure/guide.doc).
+Or you can do it step by step by following the guide [guide.doc](http://cloudfoundry.blob.core.windows.net/misc/beta-guide.doc).
 
-Currently MicroBOSH can only be deployed from a virtual machine in the same VNET on Azure.
-After you configure your azure account, please create a VM in your VNET. 
-Recommend you to use Ubuntu Server 14.04LTS. If you use other distros, please update install.sh before executing it.
+Currently BOSH can only be deployed from a virtual machine in the same VNET on Azure.
+After you configure your azure account, please create an Azure VM based on Ubuntu Server 14.04 LTS in your VNET.
 
-## Install
+## Configure Dev Machine
 
-To install the Azure BOSH CLI:
+To install bosh_cli and bosh-init:
 
 ```
-wget https://raw.githubusercontent.com/Azure/bosh/azure_cpi_external/deploy_for_azure/install.sh
-./install.sh
+sudo apt-get update
+
+sudo apt-get install -y build-essential ruby ruby-dev libxml2-dev libsqlite3-dev libxslt1-dev libpq-dev libmysqlclient-dev zlibc zlib1g-dev openssl libxslt-dev libssl-dev libreadline6 libreadline6-dev libyaml-dev sqlite3 libffi-dev
+
+sudo gem install bosh_cli azure --no-ri --no-rdoc
+
+wget https://s3.amazonaws.com/bosh-init-artifacts/bosh-init-0.0.51-linux-amd64
+chmod +x ./bosh-init-*
+sudo mv ./bosh-init-* /usr/local/bin/bosh-init
 ```
 
-To deploy MicroBosh, you can reference deploy_for_azure/config/micro_bosh.yml.
+To deploy BOSH, you can reference bosh.yml in the guide [guide.doc](http://cloudfoundry.blob.core.windows.net/misc/beta-guide.doc).
 
-To deploy single VM cloud foundry, you can reference deploy_for_azure/config/micro_cf.yml.
+To deploy single VM cloud foundry, you can reference [cf_212.yml](http://cloudfoundry.blob.core.windows.net/misc/cf_212.yml).
 
 ## File a bug
 
