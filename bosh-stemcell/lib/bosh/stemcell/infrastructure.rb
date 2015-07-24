@@ -111,7 +111,7 @@ module Bosh::Stemcell
 
     class Azure < Base
       def initialize
-        super(name: 'azure', hypervisor: 'hyperv', default_disk_size: 8192, disk_formats: ['vhd'])
+        super(name: 'azure', hypervisor: 'hyperv', default_disk_size: 3072, disk_formats: ['vhd'])
       end
     end
   end
