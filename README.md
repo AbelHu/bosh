@@ -21,9 +21,9 @@ Cloud Foundry BOSH is an open source tool chain for release engineering, deploym
 
 ## Configure Azure Environment
 
-Recommend you to reference the guide [guide_template.doc](http://cloudfoundry.blob.core.windows.net/misc/beta-guide-template.doc) to use [Azure Resource Template](https://github.com/Azure/azure-quickstart-templates/tree/master/microbosh-setup) to configure your Azure account and dev machine.
+Recommend you to reference the guide [beta-guide-template.md](https://github.com/Azure/bosh-azure-cpi-release/blob/master/docs/beta-template-guide.md) to use [Azure Resource Template](https://github.com/Azure/azure-quickstart-templates/tree/master/bosh-setup) to configure your Azure account and dev machine.
 
-Or you can do it step by step by following the guide [guide.doc](http://cloudfoundry.blob.core.windows.net/misc/beta-guide.doc).
+Or you can do it step by step by following the guide [beta-guide.md](https://github.com/Azure/bosh-azure-cpi-release/blob/master/docs/beta-guide.md).
 
 Currently BOSH can only be deployed from a virtual machine in the same VNET on Azure.
 After you configure your azure account, please create an Azure VM based on Ubuntu Server 14.04 LTS in your VNET.
@@ -37,16 +37,16 @@ sudo apt-get update
 
 sudo apt-get install -y build-essential ruby ruby-dev libxml2-dev libsqlite3-dev libxslt1-dev libpq-dev libmysqlclient-dev zlibc zlib1g-dev openssl libxslt-dev libssl-dev libreadline6 libreadline6-dev libyaml-dev sqlite3 libffi-dev
 
-sudo gem install bosh_cli azure --no-ri --no-rdoc
+sudo gem install bosh_cli -v 1.3016.0 --no-ri --no-rdoc
 
 wget https://s3.amazonaws.com/bosh-init-artifacts/bosh-init-0.0.51-linux-amd64
 chmod +x ./bosh-init-*
 sudo mv ./bosh-init-* /usr/local/bin/bosh-init
 ```
 
-To deploy BOSH, you can reference bosh.yml in the guide [guide.doc](http://cloudfoundry.blob.core.windows.net/misc/beta-guide.doc).
+To deploy BOSH, you can reference [bosh.yml](http://cloudfoundry.blob.core.windows.net/misc/bosh.yml).
 
-To deploy single VM cloud foundry, you can reference [cf_212.yml](http://cloudfoundry.blob.core.windows.net/misc/cf_212.yml).
+To deploy cloud foundry, you can reference [cf_212.yml](http://cloudfoundry.blob.core.windows.net/misc/cf_212.yml).
 
 ## File a bug
 
