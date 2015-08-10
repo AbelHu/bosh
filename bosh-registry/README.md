@@ -80,23 +80,6 @@ These are the credentials to connect to OpenStack services:
 * `connection_options` (optional)
   Hash containing optional connection parameters to the OpenStack API (`ssl_verify_peer`, `omit_default_port`, ...)
 
-#### Azure options
-
-These are the credentials to connect to Azure services:
-
-* `environment` (required)
-  The environment for Azure Management Service: AzureCloud or AzureChinaCloud
-* `subscription_id` (required)
-  Azure Subscription Id
-* `resource_group_name` (required)
-  Resource group name for your resources on Azure
-* `tenant_id` (required)
-  The tenant id for your service principal
-* `client_id` (required)
-  The client id for your service principal
-* `client_secret` (required)
-  The client secret for your service principal
-
 ## Example
 
 This is a sample of an Bosh Registry configuration file:

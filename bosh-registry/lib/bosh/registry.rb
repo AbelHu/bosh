@@ -13,10 +13,6 @@ require "sequel"
 require "sinatra/base"
 require "thin"
 require "yajl"
-require 'uri'
-require 'json'
-require 'time'
-require 'net/http'
 
 require "bosh/registry/yaml_helper"
 

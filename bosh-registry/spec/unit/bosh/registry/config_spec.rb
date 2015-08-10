@@ -6,7 +6,38 @@ describe Bosh::Registry do
 
   describe "configuring registry" do
 
-    it "validates configuration file" do
+    it "validates configuration file with a plugin" do
+      expect {
+        Bosh::Registry.configure("foobar")
+      }.to raise_error(Bosh::Registry::ConfigError, /Invalid config format/)
+
+      config = valid_config.merge("http" => nil)
+
+      expect {
+        Bosh::Registry.configure(config)
+      }.to raise_error(Bosh::Registry::ConfigError, /HTTP configuration is missing/)
+
+      config = valid_config.merge("db" => nil)
+
+      expect {
+        Bosh::Registry.configure(config)
+      }.to raise_error(Bosh::Registry::ConfigError, /Database configuration is missing/)
+
+      config = valid_config
+      config["cloud"]["plugin"] = nil
+
+      expect {
+        Bosh::Registry.configure(config)
+      }.to raise_error(Bosh::Registry::ConfigError, /Cloud plugin is missing/)
+
+      config = valid_config
+
+      expect {
+        Bosh::Registry.configure(config)
+      }.to raise_error(Bosh::Registry::ConfigError, /Could not find Provider Plugin/)
+    end
+
+    it "validates configuration file without a plugin" do
       expect {
         Bosh::Registry.configure("foobar")
       }.to raise_error(Bosh::Registry::ConfigError, /Invalid config format/)
@@ -27,20 +58,7 @@ describe Bosh::Registry do
 
       expect {
         Bosh::Registry.configure(config)
-      }.to raise_error(Bosh::Registry::ConfigError, /Cloud configuration is missing/)
-
-      config = valid_config
-      config["cloud"]["plugin"] = nil
-
-      expect {
-        Bosh::Registry.configure(config)
-      }.to raise_error(Bosh::Registry::ConfigError, /Cloud plugin is missing/)
-
-      config = valid_config
-
-      expect {
-        Bosh::Registry.configure(config)
-      }.to raise_error(Bosh::Registry::ConfigError, /Could not find Provider Plugin/)
+      }.to_not raise_error
     end
 
     it "reads provided configuration file and sets singletons for AWS" do
@@ -108,6 +126,32 @@ describe Bosh::Registry do
 
       im = Bosh::Registry.instance_manager
       expect(im).to be_kind_of(Bosh::Registry::InstanceManager::Openstack)
+    end
+
+    it "reads provided configuration file and sets singletons for others" do
+      allow(Fog::Compute).to receive(:new)
+
+      config = valid_config
+      config["cloud"] = nil
+      Bosh::Registry.configure(config)
+
+      logger = Bosh::Registry.logger
+
+      expect(logger).to be_kind_of(Logger)
+      expect(logger.level).to eq(Logger::DEBUG)
+
+      expect(Bosh::Registry.http_port).to eq(25777)
+      expect(Bosh::Registry.http_user).to eq("admin")
+      expect(Bosh::Registry.http_password).to eq("admin")
+
+      db = Bosh::Registry.db
+      expect(db).to be_kind_of(Sequel::SQLite::Database)
+      expect(db.opts[:database]).to eq("/:memory:")
+      expect(db.opts[:max_connections]).to eq(433)
+      expect(db.opts[:pool_timeout]).to eq(227)
+
+      im = Bosh::Registry.instance_manager
+      expect(im).to be_kind_of(Bosh::Registry::InstanceManager)
     end
 
   end
