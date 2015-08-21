@@ -68,18 +68,25 @@ then
   # GRUB 2 needs /sys and /proc to do its job
   mount -t proc none ${image_mount_point}/proc
   add_on_exit "umount ${image_mount_point}/proc"
-  
+
   mount -t sysfs none ${image_mount_point}/sys
   add_on_exit "umount ${image_mount_point}/sys"
-  
+
   echo "(hd0) ${device}" > ${image_mount_point}/device.map
 
   # install bootsector into disk image file
   run_in_chroot ${image_mount_point} "grub2-install -v --no-floppy --grub-mkdevicemap=/device.map ${device}"
 
-  cat >${image_mount_point}/etc/default/grub <<EOF
+  # Append "console=ttyS0 earlyprintk=ttyS0 rootdelay=300" for azure
+  if [ "${stemcell_infrastructure}" == "azure" ]; then
+    cat >${image_mount_point}/etc/default/grub <<EOF
+GRUB_CMDLINE_LINUX="vconsole.keymap=us net.ifnames=0 crashkernel=auto selinux=0 plymouth.enable=0 console=ttyS0 earlyprintk=ttyS0 rootdelay=300"
+EOF
+  else
+    cat >${image_mount_point}/etc/default/grub <<EOF
 GRUB_CMDLINE_LINUX="vconsole.keymap=us net.ifnames=0 crashkernel=auto selinux=0 plymouth.enable=0"
 EOF
+  fi
 
   # we use a random password to prevent user from editing the boot menu
   pbkdf2_password=`run_in_chroot ${image_mount_point} "echo -e '${random_password}\n${random_password}' | grub2-mkpasswd-pbkdf2 | grep -Eo 'grub.pbkdf2.sha512.*'"`
@@ -150,7 +157,18 @@ fi
 
 if [ -f ${image_mount_point}/etc/debian_version ] # Ubuntu
 then
-  cat > ${image_mount_point}/boot/grub/grub.conf <<GRUB_CONF
+  # Append "console=ttyS0 earlyprintk=ttyS0 rootdelay=300" for azure
+  if [ "${stemcell_infrastructure}" == "azure" ]; then
+    cat > ${image_mount_point}/boot/grub/grub.conf <<GRUB_CONF
+default=0
+timeout=1
+title ${os_name} (${kernel_version})
+  root (hd0,0)
+  kernel /boot/vmlinuz-${kernel_version} ro root=UUID=${uuid} selinux=0 cgroup_enable=memory swapaccount=1 console=tty0 console=ttyS0 earlyprintk=ttyS0 rootdelay=300
+  initrd /boot/${initrd_file}
+GRUB_CONF
+  else
+    cat > ${image_mount_point}/boot/grub/grub.conf <<GRUB_CONF
 default=0
 timeout=1
 title ${os_name} (${kernel_version})
@@ -158,10 +176,22 @@ title ${os_name} (${kernel_version})
   kernel /boot/vmlinuz-${kernel_version} ro root=UUID=${uuid} selinux=0 cgroup_enable=memory swapaccount=1 console=tty0 console=ttyS0,115200n8
   initrd /boot/${initrd_file}
 GRUB_CONF
+  fi
 
 elif [ -f ${image_mount_point}/etc/redhat-release ] # Centos or RHEL
 then
-  cat > ${image_mount_point}/boot/grub/grub.conf <<GRUB_CONF
+  # Append "console=ttyS0 earlyprintk=ttyS0 rootdelay=300" for azure
+  if [ "${stemcell_infrastructure}" == "azure" ]; then
+    cat > ${image_mount_point}/boot/grub/grub.conf <<GRUB_CONF
+default=0
+timeout=1
+title ${os_name} (${kernel_version})
+  root (hd0,0)
+  kernel /boot/vmlinuz-${kernel_version} ro root=UUID=${uuid} net.ifnames=0 plymouth.enable=0 selinux=0 console=tty0 console=ttyS0 earlyprintk=ttyS0 rootdelay=300
+  initrd /boot/${initrd_file}
+GRUB_CONF
+  else
+    cat > ${image_mount_point}/boot/grub/grub.conf <<GRUB_CONF
 default=0
 timeout=1
 title ${os_name} (${kernel_version})
@@ -169,6 +199,7 @@ title ${os_name} (${kernel_version})
   kernel /boot/vmlinuz-${kernel_version} ro root=UUID=${uuid} net.ifnames=0 plymouth.enable=0 selinux=0 console=tty0 console=ttyS0,115200n8
   initrd /boot/${initrd_file}
 GRUB_CONF
+  fi
 
 elif [ -f ${image_mount_point}/etc/photon-release ] # Photon
 then
